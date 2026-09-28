@@ -162,6 +162,18 @@ button.bar:hover{background:color-mix(in srgb, var(--go) 7%, transparent)}
 .detail-list{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:4px;font-size:13px;color:var(--muted)}
 .detail-list span{display:inline-flex;align-items:center;gap:6px}
 .detail-list .dot{width:8px;height:8px}
+.today{display:block;width:100%;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-lg);padding:14px 16px;margin-top:14px;cursor:pointer;color:inherit}
+.today:hover{border-color:color-mix(in srgb, var(--go) 45%, var(--line))}
+.today-top{display:flex;align-items:baseline;gap:10px}
+.today-label{font-size:14px;font-weight:600;color:var(--muted)}
+.today-total{font-family:var(--digits);font-variant-numeric:tabular-nums;font-size:22px;font-weight:600;margin-left:auto}
+.today-delta{font-size:13px;color:var(--muted);white-space:nowrap}
+.stack{display:flex;height:10px;border-radius:5px;overflow:hidden;background:var(--bg);margin-top:10px;gap:2px}
+.stack span{height:100%;min-width:3px}
+.today-legend{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:10px;font-size:13px;color:var(--muted)}
+.today-legend span{display:inline-flex;align-items:center;gap:6px}
+.today-legend .dot{width:8px;height:8px}
+.today-legend b{color:var(--ink);font-weight:600}
 .hidden{display:none !important}
 @media (prefers-reduced-motion: reduce){*{transition:none !important}}
 </style>
@@ -189,7 +201,7 @@ button.bar:hover{background:color-mix(in srgb, var(--go) 7%, transparent)}
       </div>
     </div>
     <div class="searchbar" id="timerBar">
-      <input class="search" id="search" type="search" placeholder="Search projects and tasks" autocomplete="off" spellcheck="false" aria-label="Search projects and tasks">
+      <input class="search" id="search" type="search" placeholder="Search" autocomplete="off" spellcheck="false" aria-label="Search projects and tasks">
       <button class="icon-btn" id="createBtn" aria-label="Create" title="Create a task, project or category">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
       </button>
@@ -219,6 +231,7 @@ button.bar:hover{background:color-mix(in srgb, var(--go) 7%, transparent)}
       <button class="btn danger hidden" id="forgetBtn">Forget key</button>
       <button class="btn hidden" id="closeSettingsBtn">Close</button>
     </div>
+    <p id="usage" class="hidden" style="margin:14px 0 0"></p>
   </div>
 
   <div id="create" class="panel hidden">
@@ -260,7 +273,7 @@ button.bar:hover{background:color-mix(in srgb, var(--go) 7%, transparent)}
 (() => {
 'use strict';
 const BASE = 'https://api.clockify.me/api/v1';
-const K = { key:'qt.key', cache:'qt.cache', recent:'qt.recent', collapsed:'qt.collapsed', ws:'qt.ws', projOpen:'qt.projOpen', sumKind:'qt.sumKind' };
+const K = { key:'qt.key', cache:'qt.cache', recent:'qt.recent', collapsed:'qt.collapsed', ws:'qt.ws', projOpen:'qt.projOpen', sumKind:'qt.sumKind', calls:'qt.calls', backoff:'qt.backoff' };
 const DAY = 86400000;
 
 // ---------- storage (always guarded) ----------
@@ -277,7 +290,9 @@ let recent = store.get(K.recent, []);         // [{p, t}]
 let collapsed = store.get(K.collapsed, {});   // {groupName: true}
 let projOpen = store.get(K.projOpen, {});     // {projectId: true|false}; default open when it has tasks
 let running = null;                           // {id, projectId, taskId, start, pName, tName, color}
-let lastRunCheck = 0, busy = false, query = '', activeIdx = 0, resultItems = [];
+let calls = store.get(K.calls, []), backoffUntil = store.get(K.backoff, 0);
+let lastSync = 0, lastSyncTry = 0, syncing = false;
+let busy = false, query = '', activeIdx = 0, resultItems = [];
 let projectsById = new Map();
 
 // ---------- helpers ----------
@@ -316,8 +331,22 @@ function playIcon(){
 
 // ---------- API ----------
 class ApiError extends Error { constructor(status, msg){ super(msg); this.status = status; } }
+function noteCall(){
+  const now = Date.now();
+  calls = calls.filter(t => now - t < 3600000); calls.push(now); store.set(K.calls, calls);
+  if (!$('settings').classList.contains('hidden')) showUsage();
+}
+function callsLastHour(){ const now = Date.now(); return calls.filter(t => now - t < 3600000).length; }
+function showUsage(){
+  const n = callsLastHour();
+  let txt = `This device made ${n} request${n === 1 ? '' : 's'} to Clockify in the last hour. Free workspaces allow 30 per hour, shared across all your devices.`;
+  if (Date.now() < backoffUntil) txt += ` Auto-refresh is paused until ${fmtClock(backoffUntil)} because Clockify reported the limit.`;
+  $('usage').textContent = txt;
+}
+const fmtClock = ms => new Date(ms).toLocaleTimeString(undefined, { hour:'numeric', minute:'2-digit' });
 async function api(path, method = 'GET', body){
   let res;
+  noteCall();
   try {
     res = await fetch(BASE + path, {
       method, cache:'no-store', referrerPolicy:'no-referrer',
@@ -329,7 +358,10 @@ async function api(path, method = 'GET', body){
   }
   if (res.status === 401) throw new ApiError(401, "Clockify didn't accept the API key. Paste a current key in Settings.");
   if (res.status === 403) { let m = ''; try { m = (await res.json()).message || ''; } catch {} throw new ApiError(403, m || "Your Clockify role doesn't allow this action in this workspace."); }
-  if (res.status === 429) throw new ApiError(429, 'Clockify is limiting requests right now. Wait a minute and try again.');
+  if (res.status === 429) {
+    backoffUntil = Date.now() + 10 * 60000; store.set(K.backoff, backoffUntil);
+    throw new ApiError(429, `Clockify's hourly request limit was reached. Auto-refresh is paused until ${fmtClock(backoffUntil)}.`);
+  }
   if (!res.ok) { let m = ''; try { m = (await res.json()).message || ''; } catch {} throw new ApiError(res.status, m || `Clockify returned an error (${res.status}).`); }
   if (res.status === 204) return null;
   const txt = await res.text(); return txt ? JSON.parse(txt) : null;
@@ -367,16 +399,21 @@ async function refreshData(announce){
   store.set(K.cache, cache); indexCache();
   if (announce) toast(`Loaded ${projects.length} projects`);
 }
-async function checkRunning(force){
-  if (!cache || !apiKey) return;
-  if (!force && Date.now() - lastRunCheck < 20000) return;
-  lastRunCheck = Date.now();
-  try {
-    const arr = await api(`/workspaces/${cache.ws}/user/${cache.userId}/time-entries?in-progress=true&hydrated=true`);
-    const e = Array.isArray(arr) ? arr[0] : null;
-    running = e ? toRunning(e) : null;
-    renderAll();
-  } catch (err) { handleError(err); }
+// One request refreshes both today's entries and the running timer.
+// mode 'user': always; 'auto': skip if refreshed in the last 3 minutes or paused; 'missing': at most once a minute.
+async function sync(mode = 'auto'){
+  if (!cache || !apiKey || syncing) return;
+  const now = Date.now();
+  if (mode !== 'user') {
+    if (now < backoffUntil) return;
+    if (mode === 'auto' && now - lastSync < 180000) return;
+    if (mode === 'missing' && now - lastSyncTry < 60000) return;
+  }
+  syncing = true; lastSyncTry = now;
+  const p = period('today', 0);
+  try { sumCache.delete(todayKey(p)); await fetchSegs(p); }
+  catch (err) { if (mode === 'user' || err.status === 401 || err.status === 429) handleError(err); }
+  finally { syncing = false; renderAll(); }
 }
 function toRunning(e){
   const p = projectsById.get(e.projectId);
@@ -390,20 +427,31 @@ function toRunning(e){
 
 // ---------- actions ----------
 async function stopRemote(end, quiet){
-  try { await api(`/workspaces/${cache.ws}/user/${cache.userId}/time-entries`, 'PATCH', { end }); }
-  catch (err) { if (!(quiet && (err.status === 400 || err.status === 404))) throw err; }
+  try { return await api(`/workspaces/${cache.ws}/user/${cache.userId}/time-entries`, 'PATCH', { end }); }
+  catch (err) { if (quiet && (err.status === 400 || err.status === 404)) return null; throw err; }
 }
 async function start(p, t){
   if (busy || !cache) return;
   if (running && running.projectId === p.id && (running.taskId || null) === (t?.id || null)) { toast('Already running'); return; }
   busy = true; document.body.style.cursor = 'progress';
-  const now = isoNow();
+  const now = isoNow(), prev = running;
+  const body = { start: now, projectId: p.id, billable: false };
+  if (t) body.taskId = t.id;
+  const post = () => api(`/workspaces/${cache.ws}/time-entries`, 'POST', body);
   try {
-    await stopRemote(now, true);   // stops whatever is running, even if it was started on another device
-    const body = { start: now, projectId: p.id, billable: false };
-    if (t) body.taskId = t.id;
-    const e = await api(`/workspaces/${cache.ws}/time-entries`, 'POST', body);
-    running = toRunning(e); lastRunCheck = Date.now(); sumCache.clear();
+    let e;
+    if (prev) {                        // known running timer: stop it, then start (2 requests)
+      recordStopped(await stopRemote(now, true), prev, now);
+      e = await post();
+    } else {                           // looks idle: try starting directly (1 request)
+      try { e = await post(); }
+      catch (err) {                    // a timer started on another device may be in the way
+        if (err.status !== 400 && err.status !== 409) throw err;
+        recordStopped(await stopRemote(now, true), null, now);
+        e = await post();
+      }
+    }
+    running = toRunning(e);
     recent = [{ p:p.id, t:t?.id || null }, ...recent.filter(r => !(r.p === p.id && r.t === (t?.id || null)))].slice(0, 8);
     store.set(K.recent, recent);
     toast(`Started ${t ? t.name : p.name}`);
@@ -414,12 +462,24 @@ async function start(p, t){
 async function stop(){
   if (busy || !running) return;
   busy = true; $('stopBtn').disabled = true;
-  try { await stopRemote(isoNow(), false); toast(`Stopped at ${fmt(Date.now() - running.start)}`); running = null; sumCache.clear(); }
-  catch (err) {
-    if (err.status === 400 || err.status === 404) { running = null; toast('That timer was already stopped'); }
+  const r = running, now = isoNow();
+  try {
+    const e = await stopRemote(now, false);
+    recordStopped(e, r, now);
+    toast(`Stopped at ${fmt(Date.now() - r.start)}`); running = null;
+  } catch (err) {
+    if (err.status === 400 || err.status === 404) { running = null; toast('That timer was already stopped'); sync('user'); }
     else handleError(err);
   }
   finally { busy = false; $('stopBtn').disabled = false; renderAll(); }
+}
+// Add a just-finished entry to the cached data locally instead of downloading the day again.
+function recordStopped(entry, fallback, endIso){
+  let seg = null;
+  if (entry?.timeInterval?.end) seg = entryToSeg(entry, Date.now());
+  else if (fallback) seg = { ...runningSeg(fallback), e: Date.parse(endIso), live:false };
+  if (!seg || !(seg.e > seg.s)) return;
+  for (const v of sumCache.values()) if (seg.e > v.from && !v.segs.some(g => g.id && g.id === seg.id)) v.segs.push(seg);
 }
 function handleError(err){
   toast(err.message || 'Something went wrong', true);
@@ -551,6 +611,7 @@ function renderList(){
     list.append(box); return;
   }
   resultItems = [];
+  list.append(todayCardEl());
   const rec = recent.map(r => { const p = projectsById.get(r.p); const t = r.t ? p?.tasks.find(x => x.id === r.t) : null;
     return p && (!r.t || t) ? { p, t } : null; }).filter(Boolean).slice(0, 6);
   if (rec.length) {
@@ -574,7 +635,8 @@ function showSettings(open){
   $('settings').classList.toggle('hidden', !open);
   const connected = !!(apiKey && cache);
   $('keyInput').value = ''; $('keyInput').placeholder = apiKey ? 'Key saved. Paste a new one to replace it.' : 'Paste your API key';
-  ['refreshBtn','forgetBtn','closeSettingsBtn'].forEach(id => $(id).classList.toggle('hidden', !connected));
+  ['refreshBtn','forgetBtn','closeSettingsBtn','usage'].forEach(id => $(id).classList.toggle('hidden', !connected));
+  if (connected) showUsage();
   const wsField = $('wsField'), sel = $('wsSelect');
   if (connected && cache.workspaces.length > 1) {
     sel.replaceChildren(...cache.workspaces.map(w => { const o = el('option', { value:w.id, text:w.name }); if (w.id === cache.ws) o.selected = true; return o; }));
@@ -590,7 +652,7 @@ async function connect(){
   try {
     await refreshData(true);
     store.set(K.key, apiKey);
-    showSettings(false); await checkRunning(true); renderAll();
+    showSettings(false); sumCache.clear(); await sync('user');
   } catch (err) { apiKey = prev; toast(err.message, true); }
   finally { $('saveKeyBtn').disabled = false; }
 }
@@ -692,17 +754,17 @@ $('saveKeyBtn').addEventListener('click', connect);
 $('keyInput').addEventListener('keydown', e => { if (e.key === 'Enter') connect(); });
 $('refreshBtn').addEventListener('click', async () => {
   $('refreshBtn').disabled = true;
-  try { await refreshData(true); await checkRunning(true); renderAll(); } catch (err) { handleError(err); }
+  try { await refreshData(true); await sync('user'); } catch (err) { handleError(err); }
   finally { $('refreshBtn').disabled = false; }
 });
 $('wsSelect').addEventListener('change', async e => {
   store.set(K.ws, e.target.value); recent = []; store.set(K.recent, recent);
-  try { await refreshData(true); await checkRunning(true); showSettings(false); renderAll(); } catch (err) { handleError(err); }
+  try { sumCache.clear(); await refreshData(true); await sync('user'); showSettings(false); } catch (err) { handleError(err); }
 });
 $('forgetBtn').addEventListener('click', () => {
   if (!confirm('Remove the API key and cached projects from this browser?')) return;
   Object.values(K).forEach(k => store.del(k));
-  apiKey = ''; cache = null; running = null; recent = []; collapsed = {}; projOpen = {}; indexCache();
+  apiKey = ''; cache = null; running = null; calls = []; backoffUntil = 0; recent = []; collapsed = {}; projOpen = {}; indexCache();
   renderAll(); showSettings(true); toast('Key removed from this browser');
 });
 $('search').addEventListener('input', e => { query = e.target.value.trim(); activeIdx = 0; renderList(); });
@@ -718,7 +780,7 @@ document.addEventListener('keydown', e => {
   const typing = /^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement?.tagName);
   if (e.key === '/' && !typing) { e.preventDefault(); $('search').focus(); }
 });
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkRunning(false); });
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') sync('auto'); });
 setInterval(() => { if (running) tick(); }, 1000);
 
 // ---------- summary ----------
@@ -745,13 +807,13 @@ function dur(ms){
 }
 const overlap = (s, e, a, b) => Math.max(0, Math.min(e, b) - Math.max(s, a));
 
-function period(){
+function period(kind = sum.kind, offset = sum.offset){
   const now = new Date(); let a, b, pa, cmp;
-  if (sum.kind === 'today') { a = addDays(startOfDay(now), sum.offset); b = addDays(a, 1); pa = addDays(a, -1); cmp = 'the day before'; }
-  else if (sum.kind === 'week') {
+  if (kind === 'today') { a = addDays(startOfDay(now), offset); b = addDays(a, 1); pa = addDays(a, -1); cmp = 'the day before'; }
+  else if (kind === 'week') {
     const ws = WD[cache?.weekStart] ?? 1, t = startOfDay(now);
-    a = addDays(t, -((t.getDay() - ws + 7) % 7) + 7 * sum.offset); b = addDays(a, 7); pa = addDays(a, -7); cmp = 'the week before';
-  } else if (sum.kind === 'month') { const t = startOfDay(now); t.setDate(1); a = addMonths(t, sum.offset); b = addMonths(a, 1); pa = addMonths(a, -1); cmp = 'the month before'; }
+    a = addDays(t, -((t.getDay() - ws + 7) % 7) + 7 * offset); b = addDays(a, 7); pa = addDays(a, -7); cmp = 'the week before';
+  } else if (kind === 'month') { const t = startOfDay(now); t.setDate(1); a = addMonths(t, offset); b = addMonths(a, 1); pa = addMonths(a, -1); cmp = 'the month before'; }
   else {
     if (!sum.customB) sum.customB = ymd(now);
     if (!sum.customA) sum.customA = ymd(addDays(now, -6));
@@ -764,16 +826,35 @@ function period(){
   const pb = inProgress ? new Date(Math.min(pa.getTime() + (now - a), a.getTime())) : a;
   const days = Math.round((b - a) / 86400000);
   let title;
-  if (sum.kind === 'today') title = sum.offset === 0 ? 'Today' : sum.offset === -1 ? 'Yesterday' : fmtD(a, { weekday:'short', month:'short', day:'numeric' });
-  else if (sum.kind === 'month') title = fmtD(a, { month:'long', year:'numeric' });
+  if (kind === 'today') title = offset === 0 ? 'Today' : offset === -1 ? 'Yesterday' : fmtD(a, { weekday:'short', month:'short', day:'numeric' });
+  else if (kind === 'month') title = fmtD(a, { month:'long', year:'numeric' });
   else title = days === 1 ? fmtD(a, { weekday:'short', month:'short', day:'numeric' }) : `${fmtD(a)} – ${fmtD(addDays(b, -1))}`;
-  if (sum.kind === 'week' && sum.offset === 0) title = `This week, ${title}`;
+  if (kind === 'week' && offset === 0) title = `This week, ${title}`;
   const cmpLabel = inProgress ? `vs same point in ${cmp}` : `vs ${cmp}`;
   return { a, b, effB, pa, pb, days, inProgress, title, cmpLabel, now };
 }
 
+function entryToSeg(e, nowMs){
+  const pr = projectsById.get(e.projectId);
+  const client = (pr ? pr.client : e.project?.clientName) || '';
+  return {
+    id: e.id, s: Date.parse(e.timeInterval.start), e: e.timeInterval.end ? Date.parse(e.timeInterval.end) : nowMs,
+    keys: [ client, e.projectId || 'none', e.taskId || 'none' ],
+    names: [ client || 'No category', pr?.name || e.project?.name || 'No project',
+             pr?.tasks.find(t => t.id === e.taskId)?.name || e.task?.name || 'No task' ],
+    pColor: pr?.color || safeColor(e.project?.color), live: !e.timeInterval.end
+  };
+}
+function runningSeg(r = running){
+  if (!r) return null;
+  const pr = projectsById.get(r.projectId);
+  return { id: r.id, s: r.start, e: Date.now(), keys: [pr?.client || '', r.projectId || 'none', r.taskId || 'none'],
+    names: [pr?.client || 'No category', r.pName, r.tName || 'No task'], pColor: r.color, live: true };
+}
+// Cached data holds finished entries only; the running timer is added live from local state.
+function withLive(segs){ const r = runningSeg(); return r ? segs.filter(g => g.id !== r.id).concat([r]) : segs; }
 async function fetchSegs(p){
-  const from = addDays(p.pa, -1), to = p.b < p.now ? p.b : p.now;
+  const from = addDays(p.pa, -1), nowMs = Date.now(), to = +p.b < nowMs ? p.b : new Date(nowMs);
   const key = `${cache.ws}|${+from}|${+p.b}`;
   if (sumCache.has(key)) return sumCache.get(key);
   const entries = []; const size = 1000;
@@ -781,30 +862,18 @@ async function fetchSegs(p){
     const batch = await api(`/workspaces/${cache.ws}/user/${cache.userId}/time-entries?start=${isoOf(from)}&end=${isoOf(to)}&hydrated=true&page=${page}&page-size=${size}`);
     entries.push(...batch); if (batch.length < size) break;
   }
-  const segs = [];
-  const seen = new Set();
-  const nowMs = Date.now();
+  const segs = []; let live = null;
   for (const e of entries) {
     if (!e.timeInterval?.start) continue;
-    seen.add(e.id);
-    const s = Date.parse(e.timeInterval.start), en = e.timeInterval.end ? Date.parse(e.timeInterval.end) : nowMs;
-    if (!(en > s)) continue;
-    const pr = projectsById.get(e.projectId);
-    segs.push({
-      s, e: en,
-      keys: [ (pr ? pr.client : e.project?.clientName) || '', e.projectId || 'none', e.taskId || 'none' ],
-      names: [ (pr ? pr.client : e.project?.clientName) || 'No category', pr?.name || e.project?.name || 'No project',
-               pr?.tasks.find(t => t.id === e.taskId)?.name || e.task?.name || 'No task' ],
-      pColor: pr?.color || safeColor(e.project?.color)
-    });
+    if (!e.timeInterval.end) { if (!live) live = e; continue; }
+    const g = entryToSeg(e, nowMs);
+    if (g.e > g.s) segs.push(g);
   }
-  if (running && !seen.has(running.id) && running.start < +p.b) {
-    const pr = projectsById.get(running.projectId);
-    segs.push({ s: running.start, e: nowMs, keys: [pr?.client || '', running.projectId || 'none', running.taskId || 'none'],
-      names: [pr?.client || 'No category', running.pName, running.tName || 'No task'], pColor: running.color });
-  }
-  sumCache.set(key, segs);
-  return segs;
+  // A range that reaches "now" also tells us the current timer, so no separate check is needed.
+  if (+p.b > nowMs) { running = live ? toRunning(live) : null; lastSync = nowMs; }
+  const v = { from: +from, segs, live };
+  sumCache.set(key, v);
+  return v;
 }
 
 function buildTree(segs, p){
@@ -861,13 +930,14 @@ async function loadSummary(){
   const key = `${cache.ws}|${+addDays(p.pa, -1)}|${+p.b}`;
   if (!sumCache.has(key)) { box.replaceChildren(headerEl(p), el('div', { class:'empty', text:'Loading your time…' })); }
   try {
-    const segs = await fetchSegs(p);
+    const res = await fetchSegs(p);
+    renderRunning();
     if (token !== sum.token || view !== 'summary') return;
-    renderSummary(p, segs);
+    renderSummary(p, withLive(res.segs));
   } catch (err) {
     if (token !== sum.token) return;
     box.replaceChildren(headerEl(p), el('div', { class:'empty' }, el('div', { text: err.message || 'Could not load your time.' }),
-      el('button', { class:'btn', type:'button', text:'Try again', style:'margin-top:12px', onclick: () => { sumCache.clear(); loadSummary(); } })));
+      el('button', { class:'btn', type:'button', text:'Try again', style:'margin-top:12px', onclick: () => { sumCache.delete(key); loadSummary(); } })));
     if (err.status === 401) showSettings(true);
   }
 }
@@ -879,7 +949,7 @@ function headerEl(p){
     navOK ? el('button', { class:'icon-btn nav', type:'button', 'aria-label':'Previous period', text:'‹', onclick: () => { sum.offset--; sum.selDay = sum.selSeg = null; loadSummary(); } }) : null,
     el('div', { class:'sum-title', text:p.title }),
     navOK ? el('button', { class:'icon-btn nav', type:'button', 'aria-label':'Next period', text:'›', onclick: () => { if (sum.offset < 0) { sum.offset++; sum.selDay = sum.selSeg = null; loadSummary(); } } }) : null,
-    el('button', { class:'icon-btn nav', type:'button', 'aria-label':'Reload', title:'Reload', text:'↻', onclick: () => { sumCache.clear(); loadSummary(); } }));
+    el('button', { class:'icon-btn nav', type:'button', 'aria-label':'Reload', title:'Reload', text:'↻', onclick: () => { sumCache.delete(`${cache.ws}|${+addDays(p.pa, -1)}|${+p.b}`); loadSummary(); } }));
   if (navOK) head.children[2].disabled = sum.offset >= 0;
   wrap.append(head);
   if (sum.kind === 'custom') {
@@ -1072,7 +1142,7 @@ function setView(v){
   $('timerBar').classList.toggle('hidden', sumV); $('summaryBar').classList.toggle('hidden', !sumV);
   $('list').classList.toggle('hidden', sumV); $('summary').classList.toggle('hidden', !sumV);
   $('create').classList.add('hidden'); $('settings').classList.add('hidden');
-  if (sumV) { if (running) sumCache.clear(); loadSummary(); window.scrollTo({ top:0 }); } else renderList();
+  if (sumV) { loadSummary(); window.scrollTo({ top:0 }); } else renderList();
 }
 $('summaryBtn').addEventListener('click', () => setView('summary'));
 $('backBtn').addEventListener('click', () => setView('timer'));
@@ -1082,13 +1152,52 @@ document.querySelectorAll('#rangeSeg button').forEach(b => b.addEventListener('c
 let resizeT;
 window.addEventListener('resize', () => { clearTimeout(resizeT); resizeT = setTimeout(() => { if (view === 'summary') loadSummary(); }, 250); });
 
+// ---------- today card ----------
+function todayKey(p){ return `${cache.ws}|${+addDays(p.pa, -1)}|${+p.b}`; }
+function todayCardEl(){
+  const btn = el('button', { class:'today', id:'todayCard', type:'button', 'aria-label':"Open today's summary",
+    onclick: () => { sum.kind = 'today'; sum.offset = 0; sum.selDay = sum.selSeg = null; store.set(K.sumKind, 'today'); setView('summary'); } });
+  const p = period('today', 0);
+  const v = cache ? sumCache.get(todayKey(p)) : null;
+  if (!v) {
+    const paused = Date.now() < backoffUntil;
+    btn.append(el('div', { class:'today-top' }, el('span', { class:'today-label', text:'Today' }),
+      el('span', { class:'today-delta', text: paused ? `Paused until ${fmtClock(backoffUntil)}` : 'Loading…' })));
+    if (cache && !paused) setTimeout(() => sync('missing'), 0);
+    return btn;
+  }
+  const root = buildTree(withLive(v.segs), p);
+  const cats = [...root.children.values()].filter(c => c.ms > 0).sort((x, y) => y.ms - x.ms);
+  const d = root.ms - root.prev;
+  btn.append(el('div', { class:'today-top' },
+    el('span', { class:'today-label', text:'Today' }),
+    el('span', { class:'today-delta', text: root.prev || root.ms ? `${Math.abs(d) < 60000 ? '±0m' : (d > 0 ? '▲ ' : '▼ ') + dur(Math.abs(d))} vs yesterday` : '' }),
+    el('span', { class:'today-total', text: dur(root.ms) })));
+  if (!root.ms) { btn.append(el('div', { class:'today-legend', text:'Nothing tracked yet today.' })); return btn; }
+  const stack = el('div', { class:'stack', 'aria-hidden':'true' });
+  const legend = el('div', { class:'today-legend' });
+  cats.forEach((c, i) => {
+    const col = catColor(c.key);
+    const part = el('span', { title:`${c.name}: ${dur(c.ms)}` }); part.style.flex = String(c.ms); part.style.background = col; stack.append(part);
+    if (i < 4) { const dot = el('span', { class:'dot' }); dot.style.background = col; legend.append(el('span', {}, dot, `${c.name} `, el('b', { text: dur(c.ms) }))); }
+  });
+  if (cats.length > 4) legend.append(el('span', { text:`+${cats.length - 4} more` }));
+  btn.append(stack, legend);
+  return btn;
+}
+function updateTodayCard(){
+  const cur = $('todayCard');
+  if (cur && view === 'timer' && !query) cur.replaceWith(todayCardEl());
+}
+setInterval(() => { if (running) updateTodayCard(); }, 15000);   // local re-draw only, no requests
+
 // ---------- boot ----------
 indexCache(); renderAll();
 if (!apiKey) showSettings(true);
 else if (!cache) connect();
 else {
-  checkRunning(true);
-  if (!cache.clients || Date.now() - cache.at > DAY) refreshData(false).then(renderAll).catch(handleError);
+  sync('auto');
+  if ((!cache.clients || Date.now() - cache.at > DAY) && Date.now() >= backoffUntil) refreshData(false).then(renderAll).catch(handleError);
 }
 })();
 </script>
