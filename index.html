@@ -1,0 +1,504 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!-- Security: only Clockify's API can be contacted; no outside scripts, fonts or images can load. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src https://api.clockify.me; img-src data:; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#EEF1F4" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#151A21" media="(prefers-color-scheme: dark)">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Quick Timer</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%8F%B1%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<style>
+:root{
+  --bg:#EEF1F4; --surface:#FFFFFF; --ink:#18202B; --muted:#5D6878; --line:#D7DDE4;
+  --go:#0E6B64; --go-ink:#FFFFFF; --run:#B45309; --run-bg:#FFF4E5; --danger:#B42318;
+  --radius-lg:14px; --radius-sm:8px;
+  --digits: ui-rounded, "SF Pro Rounded", "Nunito", system-ui, sans-serif;
+  --text: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root{ --bg:#151A21; --surface:#1E252E; --ink:#E7ECF2; --muted:#97A3B3; --line:#2C3541;
+    --go:#3FB8AC; --go-ink:#0C1A19; --run:#F0A845; --run-bg:#2A2216; --danger:#F97066; }
+}
+*,*::before,*::after{box-sizing:inherit}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:16px/1.4 var(--text);-webkit-tap-highlight-color:transparent}
+button,input,select{font:inherit;color:inherit}
+.wrap{max-width:640px;margin:0 auto;padding:0 16px 48px}
+
+/* Running bar: the one bold element */
+.now{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);padding:14px 0 10px}
+.now-card{display:flex;align-items:center;gap:14px;background:var(--surface);border:1px solid var(--line);
+  border-left:6px solid var(--line);border-radius:var(--radius-lg);padding:12px 12px 12px 16px}
+.now-card.running{background:var(--run-bg);border-color:transparent}
+.now-info{flex:1;min-width:0}
+.now-name{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.now-sub{color:var(--muted);font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.digits{font-family:var(--digits);font-variant-numeric:tabular-nums;font-size:34px;font-weight:300;letter-spacing:.5px;line-height:1.1}
+.running .digits{color:var(--run)}
+.stop{border:0;border-radius:999px;background:var(--run);color:var(--run-bg);font-weight:600;padding:12px 20px;cursor:pointer}
+.stop:disabled{opacity:.5}
+.icon-btn{border:1px solid var(--line);background:var(--surface);border-radius:999px;width:42px;height:42px;display:grid;place-items:center;cursor:pointer;flex:none}
+
+.searchbar{display:flex;gap:8px;margin-top:10px}
+.search{flex:1;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:11px 18px;outline:none;min-width:0}
+.search:focus{border-color:var(--go);box-shadow:0 0 0 1px var(--go)}
+.search:focus-visible{outline:none}
+@media (max-width:420px){.digits{font-size:28px}.stop{padding:11px 16px}}
+
+h2{font-size:14px;font-weight:600;color:var(--muted);margin:22px 4px 8px}
+.chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px}
+.chip{flex:none;max-width:220px;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:8px 14px;cursor:pointer;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:8px}
+.dot{width:10px;height:10px;border-radius:50%;flex:none;background:var(--muted)}
+
+.group{margin-top:18px}
+.group-head{display:flex;align-items:center;gap:8px;width:100%;border:0;background:none;padding:6px 4px;cursor:pointer;
+  font-size:14px;font-weight:600;color:var(--muted);text-align:left}
+.caret{transition:transform .15s}
+.group.collapsed .caret{transform:rotate(-90deg)}
+.group.collapsed .group-body{display:none}
+.group-body{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-lg);overflow:hidden}
+.project + .project{border-top:1px solid var(--line)}
+
+.row{display:flex;align-items:center;gap:12px;width:100%;border:0;background:none;padding:13px 16px;cursor:pointer;text-align:left;min-height:50px}
+.row:hover,.row.active{background:color-mix(in srgb, var(--go) 9%, transparent)}
+.row .label{flex:1;min-width:0}
+.row .title{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .meta{color:var(--muted);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row.project-row .title{font-weight:600}
+.tasks{margin-left:20px;border-left:2px solid var(--pc,var(--line))}
+.tasks .row{padding-left:16px;min-height:44px}
+.play{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;flex:none;background:var(--go);color:var(--go-ink)}
+.row.is-running .play{background:var(--run);color:var(--run-bg)}
+.row.is-running .meta.state{color:var(--run)}
+.results{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-lg);overflow:hidden;margin-top:14px}
+.results .row + .row{border-top:1px solid var(--line)}
+
+.empty{color:var(--muted);text-align:center;padding:36px 12px}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-lg);padding:18px;margin-top:14px}
+.panel h3{margin:0 0 4px;font-size:18px}
+.panel p{margin:4px 0 12px;color:var(--muted);font-size:14px}
+.field{display:flex;flex-direction:column;gap:6px;margin:14px 0}
+.field input,.field select{border:1px solid var(--line);background:var(--bg);border-radius:var(--radius-sm);padding:10px 12px}
+.btns{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:9px 16px;cursor:pointer}
+.btn.primary{background:var(--go);color:var(--go-ink);border-color:transparent;font-weight:600}
+.btn.danger{color:var(--danger)}
+.btn:disabled{opacity:.5}
+
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);
+  background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:var(--radius-sm);font-size:14px;max-width:calc(100% - 32px);
+  opacity:0;pointer-events:none;transition:opacity .2s}
+.toast.show{opacity:1}
+.toast.error{background:var(--danger);color:#fff}
+:focus-visible{outline:2px solid var(--go);outline-offset:2px}
+.hidden{display:none !important}
+@media (prefers-reduced-motion: reduce){*{transition:none !important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="now">
+    <div class="now-card" id="nowCard">
+      <div class="now-info">
+        <div class="now-name" id="nowName">No timer running</div>
+        <div class="now-sub" id="nowSub">Tap a project or task to start</div>
+      </div>
+      <div class="digits" id="nowDigits">0:00:00</div>
+      <button class="stop hidden" id="stopBtn">Stop</button>
+    </div>
+    <div class="searchbar">
+      <input class="search" id="search" type="search" placeholder="Search projects and tasks" autocomplete="off" spellcheck="false" aria-label="Search projects and tasks">
+      <button class="icon-btn" id="settingsBtn" aria-label="Settings" title="Settings">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <div id="settings" class="panel hidden">
+    <h3>Connect to Clockify</h3>
+    <p>Paste your API key from Clockify: Profile settings, then API. The key is saved only in this browser on this device.</p>
+    <div class="field">
+      <label for="keyInput">API key</label>
+      <input id="keyInput" type="password" autocomplete="off" spellcheck="false" placeholder="Paste your API key">
+    </div>
+    <div class="field hidden" id="wsField">
+      <label for="wsSelect">Workspace</label>
+      <select id="wsSelect"></select>
+    </div>
+    <div class="btns">
+      <button class="btn primary" id="saveKeyBtn">Save and connect</button>
+      <button class="btn hidden" id="refreshBtn">Reload projects</button>
+      <button class="btn danger hidden" id="forgetBtn">Forget key</button>
+      <button class="btn hidden" id="closeSettingsBtn">Close</button>
+    </div>
+  </div>
+
+  <div id="list"></div>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(() => {
+'use strict';
+const BASE = 'https://api.clockify.me/api/v1';
+const K = { key:'qt.key', cache:'qt.cache', recent:'qt.recent', collapsed:'qt.collapsed', ws:'qt.ws' };
+const DAY = 86400000;
+
+// ---------- storage (always guarded) ----------
+const store = {
+  get(k, fallback){ try { const v = localStorage.getItem(k); return v === null ? fallback : JSON.parse(v); } catch { return fallback; } },
+  set(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+  del(k){ try { localStorage.removeItem(k); } catch {} }
+};
+
+// ---------- state ----------
+let apiKey = store.get(K.key, '');
+let cache = store.get(K.cache, null);        // {ws, userId, workspaces, projects, at}
+let recent = store.get(K.recent, []);         // [{p, t}]
+let collapsed = store.get(K.collapsed, {});   // {groupName: true}
+let running = null;                           // {id, projectId, taskId, start, pName, tName, color}
+let lastRunCheck = 0, busy = false, query = '', activeIdx = 0, resultItems = [];
+let projectsById = new Map();
+
+// ---------- helpers ----------
+const $ = id => document.getElementById(id);
+function el(tag, props = {}, ...kids){
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(props)) {
+    if (v == null) continue;
+    if (k === 'class') e.className = v;
+    else if (k === 'text') e.textContent = v;   // never innerHTML with data
+    else if (k.startsWith('on')) e.addEventListener(k.slice(2), v);
+    else e.setAttribute(k, v);
+  }
+  for (const c of kids.flat()) if (c != null) e.append(c instanceof Node ? c : document.createTextNode(String(c)));
+  return e;
+}
+const safeColor = c => (typeof c === 'string' && /^#[0-9a-f]{3,8}$/i.test(c)) ? c : null;
+const isoNow = () => new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
+function fmt(ms){
+  const s = Math.max(0, Math.floor(ms / 1000));
+  const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), sec = s % 60;
+  return `${h}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
+}
+let toastTimer;
+function toast(msg, isError){
+  const t = $('toast'); t.textContent = msg; t.classList.toggle('error', !!isError); t.classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), isError ? 5000 : 2200);
+}
+function playIcon(){
+  const ns = 'http://www.w3.org/2000/svg';
+  const s = document.createElementNS(ns, 'svg'); s.setAttribute('width','12'); s.setAttribute('height','12'); s.setAttribute('viewBox','0 0 12 12'); s.setAttribute('aria-hidden','true');
+  const p = document.createElementNS(ns, 'path'); p.setAttribute('d','M3 1.5v9l7.5-4.5z'); p.setAttribute('fill','currentColor'); s.append(p);
+  return el('span', {class:'play'}, s);
+}
+
+// ---------- API ----------
+class ApiError extends Error { constructor(status, msg){ super(msg); this.status = status; } }
+async function api(path, method = 'GET', body){
+  let res;
+  try {
+    res = await fetch(BASE + path, {
+      method, cache:'no-store', referrerPolicy:'no-referrer',
+      headers: { 'X-Api-Key': apiKey, ...(body ? {'Content-Type':'application/json'} : {}) },
+      body: body ? JSON.stringify(body) : undefined
+    });
+  } catch {
+    throw new ApiError(0, "Couldn't reach Clockify. Check your internet connection.");
+  }
+  if (res.status === 401 || res.status === 403) throw new ApiError(401, "Clockify didn't accept the API key. Paste a current key in Settings.");
+  if (res.status === 429) throw new ApiError(429, 'Clockify is limiting requests right now. Wait a minute and try again.');
+  if (!res.ok) { let m = ''; try { m = (await res.json()).message || ''; } catch {} throw new ApiError(res.status, m || `Clockify returned an error (${res.status}).`); }
+  if (res.status === 204) return null;
+  const txt = await res.text(); return txt ? JSON.parse(txt) : null;
+}
+async function getAll(path){
+  const out = []; const size = 500;
+  for (let page = 1; page < 50; page++) {
+    const sep = path.includes('?') ? '&' : '?';
+    const batch = await api(`${path}${sep}page=${page}&page-size=${size}`);
+    out.push(...batch); if (batch.length < size) break;
+  }
+  return out;
+}
+
+// ---------- data ----------
+function indexCache(){
+  projectsById = new Map();
+  if (cache) for (const p of cache.projects) projectsById.set(p.id, p);
+}
+async function refreshData(announce){
+  const user = await api('/user');
+  const workspaces = (await api('/workspaces')).map(w => ({ id:w.id, name:w.name }));
+  const chosen = store.get(K.ws, '');
+  const ws = workspaces.some(w => w.id === chosen) ? chosen : (user.activeWorkspace || user.defaultWorkspace || workspaces[0]?.id);
+  const clients = await getAll(`/workspaces/${ws}/clients?archived=false`);
+  const clientName = new Map(clients.map(c => [c.id, c.name]));
+  const rawProjects = await getAll(`/workspaces/${ws}/projects?archived=false&hydrated=true`);
+  const projects = rawProjects.map(p => ({
+    id: p.id, name: p.name, color: safeColor(p.color),
+    client: (p.clientId && clientName.get(p.clientId)) || p.clientName || '',
+    tasks: (p.tasks || []).filter(t => t.status !== 'DONE').map(t => ({ id:t.id, name:t.name }))
+      .sort((a,b) => a.name.localeCompare(b.name))
+  })).sort((a,b) => a.name.localeCompare(b.name));
+  cache = { ws, userId: user.id, workspaces, projects, at: Date.now() };
+  store.set(K.cache, cache); indexCache();
+  if (announce) toast(`Loaded ${projects.length} projects`);
+}
+async function checkRunning(force){
+  if (!cache || !apiKey) return;
+  if (!force && Date.now() - lastRunCheck < 20000) return;
+  lastRunCheck = Date.now();
+  try {
+    const arr = await api(`/workspaces/${cache.ws}/user/${cache.userId}/time-entries?in-progress=true&hydrated=true`);
+    const e = Array.isArray(arr) ? arr[0] : null;
+    running = e ? toRunning(e) : null;
+    renderAll();
+  } catch (err) { handleError(err); }
+}
+function toRunning(e){
+  const p = projectsById.get(e.projectId);
+  const t = p?.tasks.find(x => x.id === e.taskId);
+  return { id:e.id, projectId:e.projectId || null, taskId:e.taskId || null,
+    start: Date.parse(e.timeInterval.start),
+    pName: p?.name || e.project?.name || 'No project',
+    tName: t?.name || e.task?.name || '',
+    color: p?.color || safeColor(e.project?.color) };
+}
+
+// ---------- actions ----------
+async function stopRemote(end, quiet){
+  try { await api(`/workspaces/${cache.ws}/user/${cache.userId}/time-entries`, 'PATCH', { end }); }
+  catch (err) { if (!(quiet && (err.status === 400 || err.status === 404))) throw err; }
+}
+async function start(p, t){
+  if (busy || !cache) return;
+  if (running && running.projectId === p.id && (running.taskId || null) === (t?.id || null)) { toast('Already running'); return; }
+  busy = true; document.body.style.cursor = 'progress';
+  const now = isoNow();
+  try {
+    await stopRemote(now, true);   // stops whatever is running, even if it was started on another device
+    const body = { start: now, projectId: p.id, billable: false };
+    if (t) body.taskId = t.id;
+    const e = await api(`/workspaces/${cache.ws}/time-entries`, 'POST', body);
+    running = toRunning(e); lastRunCheck = Date.now();
+    recent = [{ p:p.id, t:t?.id || null }, ...recent.filter(r => !(r.p === p.id && r.t === (t?.id || null)))].slice(0, 8);
+    store.set(K.recent, recent);
+    toast(`Started ${t ? t.name : p.name}`);
+    query = ''; $('search').value = ''; $('search').blur();
+  } catch (err) { handleError(err); }
+  finally { busy = false; document.body.style.cursor = ''; renderAll(); }
+}
+async function stop(){
+  if (busy || !running) return;
+  busy = true; $('stopBtn').disabled = true;
+  try { await stopRemote(isoNow(), false); toast(`Stopped at ${fmt(Date.now() - running.start)}`); running = null; }
+  catch (err) {
+    if (err.status === 400 || err.status === 404) { running = null; toast('That timer was already stopped'); }
+    else handleError(err);
+  }
+  finally { busy = false; $('stopBtn').disabled = false; renderAll(); }
+}
+function handleError(err){
+  toast(err.message || 'Something went wrong', true);
+  if (err.status === 401) showSettings(true);
+}
+
+// ---------- rendering ----------
+function renderRunning(){
+  const card = $('nowCard');
+  if (running) {
+    card.classList.add('running');
+    card.style.borderLeftColor = running.color || 'var(--run)';
+    $('nowName').textContent = running.tName || running.pName;
+    $('nowSub').textContent = running.tName ? running.pName : 'No task';
+    $('stopBtn').classList.remove('hidden');
+  } else {
+    card.classList.remove('running'); card.style.borderLeftColor = '';
+    $('nowName').textContent = 'No timer running';
+    $('nowSub').textContent = cache ? 'Tap a project or task to start' : 'Connect Clockify to begin';
+    $('stopBtn').classList.add('hidden');
+  }
+  tick();
+}
+function tick(){
+  const txt = running ? fmt(Date.now() - running.start) : '0:00:00';
+  $('nowDigits').textContent = txt;
+  document.title = running ? `${txt} ${running.tName || running.pName}` : 'Quick Timer';
+}
+function isRunning(p, t){ return running && running.projectId === p.id && (running.taskId || null) === (t?.id || null); }
+function makeRow(p, t, opts = {}){
+  const live = isRunning(p, t);
+  const title = t ? t.name : p.name;
+  const meta = opts.meta ?? (t ? null : (p.tasks.length ? 'Project, no task' : null));
+  const row = el('button', { class:`row${t ? '' : ' project-row'}${live ? ' is-running' : ''}`, type:'button',
+      'aria-label': `Start ${title}${t ? ' in ' + p.name : ''}`, onclick: () => start(p, t) },
+    opts.dot ? el('span', { class:'dot' }) : null,
+    el('span', { class:'label' }, el('div', { class:'title', text:title }),
+      live ? el('div', { class:'meta state', text:'Running' }) : (meta ? el('div', { class:'meta', text:meta }) : null)),
+    playIcon());
+  const dot = row.querySelector('.dot'); if (dot && p.color) dot.style.background = p.color;
+  return row;
+}
+function renderGroups(list){
+  const groups = new Map();
+  for (const p of cache.projects) { const g = p.client || ''; if (!groups.has(g)) groups.set(g, []); groups.get(g).push(p); }
+  const names = [...groups.keys()].sort((a,b) => (a === '') - (b === '') || a.localeCompare(b));
+  const multiple = names.length > 1 || names[0] !== '';
+  for (const g of names) {
+    const label = g || (multiple ? 'No category' : 'Projects');
+    const body = el('div', { class:'group-body' });
+    for (const p of groups.get(g)) {
+      const proj = el('div', { class:'project' }, makeRow(p, null, { dot:true }));
+      if (p.tasks.length) {
+        const tasks = el('div', { class:'tasks' });
+        if (p.color) tasks.style.setProperty('--pc', p.color);
+        for (const t of p.tasks) tasks.append(makeRow(p, t));
+        proj.append(tasks);
+      }
+      body.append(proj);
+    }
+    const group = el('section', { class:`group${collapsed[label] ? ' collapsed' : ''}` });
+    const head = el('button', { class:'group-head', type:'button', 'aria-expanded': String(!collapsed[label]),
+      onclick: () => { collapsed[label] = !collapsed[label]; if (!collapsed[label]) delete collapsed[label];
+        store.set(K.collapsed, collapsed); group.classList.toggle('collapsed'); head.setAttribute('aria-expanded', String(!collapsed[label])); } },
+      el('span', { class:'caret', text:'▾', 'aria-hidden':'true' }), el('span', { text:label }));
+    group.append(head, body); list.append(group);
+  }
+}
+function searchItems(q){
+  const words = q.toLowerCase().split(/\s+/).filter(Boolean);
+  const out = [];
+  for (const p of cache.projects) {
+    const cand = [{ p, t:null, hay:`${p.client} ${p.name}`, name:p.name }]
+      .concat(p.tasks.map(t => ({ p, t, hay:`${p.client} ${p.name} ${t.name}`, name:t.name })));
+    for (const c of cand) {
+      const hay = c.hay.toLowerCase();
+      if (!words.every(w => hay.includes(w))) continue;
+      const n = c.name.toLowerCase();
+      c.score = n.startsWith(words[0]) ? 0 : n.includes(words[0]) ? 1 : 2;
+      out.push(c);
+    }
+  }
+  return out.sort((a,b) => a.score - b.score || a.name.localeCompare(b.name)).slice(0, 60);
+}
+function renderList(){
+  const list = $('list'); list.replaceChildren();
+  if (!cache) { list.append(el('div', { class:'empty', text:'Add your Clockify API key in Settings to load your projects.' })); return; }
+  if (!cache.projects.length) { list.append(el('div', { class:'empty', text:'No active projects in this workspace. Create one in Clockify, then choose Reload projects in Settings.' })); return; }
+
+  if (query) {
+    resultItems = searchItems(query);
+    if (activeIdx >= resultItems.length) activeIdx = 0;
+    if (!resultItems.length) { list.append(el('div', { class:'empty', text:`Nothing matches "${query}".` })); return; }
+    const box = el('div', { class:'results', role:'listbox' });
+    resultItems.forEach((c, i) => {
+      const where = c.t ? (c.p.client ? `${c.p.name}, ${c.p.client}` : c.p.name) : (c.p.client || 'Project');
+      const row = makeRow(c.p, c.t, { dot:true, meta:where });
+      if (i === activeIdx) row.classList.add('active');
+      box.append(row);
+    });
+    list.append(box); return;
+  }
+  resultItems = [];
+  const rec = recent.map(r => { const p = projectsById.get(r.p); const t = r.t ? p?.tasks.find(x => x.id === r.t) : null;
+    return p && (!r.t || t) ? { p, t } : null; }).filter(Boolean).slice(0, 6);
+  if (rec.length) {
+    list.append(el('h2', { text:'Recent' }));
+    const chips = el('div', { class:'chips' });
+    for (const { p, t } of rec) {
+      const chip = el('button', { class:'chip', type:'button', title: t ? `${t.name} in ${p.name}` : p.name, onclick: () => start(p, t) },
+        el('span', { class:'dot' }), el('span', { text: t ? t.name : p.name }));
+      if (p.color) chip.firstChild.style.background = p.color;
+      chips.append(chip);
+    }
+    list.append(chips);
+  }
+  renderGroups(list);
+}
+function renderAll(){ renderRunning(); renderList(); }
+
+// ---------- settings ----------
+function showSettings(open){
+  $('settings').classList.toggle('hidden', !open);
+  const connected = !!(apiKey && cache);
+  $('keyInput').value = ''; $('keyInput').placeholder = apiKey ? 'Key saved. Paste a new one to replace it.' : 'Paste your API key';
+  ['refreshBtn','forgetBtn','closeSettingsBtn'].forEach(id => $(id).classList.toggle('hidden', !connected));
+  const wsField = $('wsField'), sel = $('wsSelect');
+  if (connected && cache.workspaces.length > 1) {
+    sel.replaceChildren(...cache.workspaces.map(w => { const o = el('option', { value:w.id, text:w.name }); if (w.id === cache.ws) o.selected = true; return o; }));
+    wsField.classList.remove('hidden');
+  } else wsField.classList.add('hidden');
+  if (open && !connected) $('keyInput').focus();
+}
+async function connect(){
+  const val = $('keyInput').value.trim();
+  if (!val && !apiKey) { toast('Paste your API key first', true); return; }
+  const prev = apiKey; if (val) apiKey = val;
+  $('saveKeyBtn').disabled = true;
+  try {
+    await refreshData(true);
+    store.set(K.key, apiKey);
+    showSettings(false); await checkRunning(true); renderAll();
+  } catch (err) { apiKey = prev; toast(err.message, true); }
+  finally { $('saveKeyBtn').disabled = false; }
+}
+
+// ---------- events ----------
+$('stopBtn').addEventListener('click', stop);
+$('settingsBtn').addEventListener('click', () => showSettings($('settings').classList.contains('hidden')));
+$('closeSettingsBtn').addEventListener('click', () => showSettings(false));
+$('saveKeyBtn').addEventListener('click', connect);
+$('keyInput').addEventListener('keydown', e => { if (e.key === 'Enter') connect(); });
+$('refreshBtn').addEventListener('click', async () => {
+  $('refreshBtn').disabled = true;
+  try { await refreshData(true); await checkRunning(true); renderAll(); } catch (err) { handleError(err); }
+  finally { $('refreshBtn').disabled = false; }
+});
+$('wsSelect').addEventListener('change', async e => {
+  store.set(K.ws, e.target.value); recent = []; store.set(K.recent, recent);
+  try { await refreshData(true); await checkRunning(true); showSettings(false); renderAll(); } catch (err) { handleError(err); }
+});
+$('forgetBtn').addEventListener('click', () => {
+  if (!confirm('Remove the API key and cached projects from this browser?')) return;
+  Object.values(K).forEach(k => store.del(k));
+  apiKey = ''; cache = null; running = null; recent = []; collapsed = {}; indexCache();
+  renderAll(); showSettings(true); toast('Key removed from this browser');
+});
+$('search').addEventListener('input', e => { query = e.target.value.trim(); activeIdx = 0; renderList(); });
+$('search').addEventListener('keydown', e => {
+  if (!query || !resultItems.length) { if (e.key === 'Escape') e.target.blur(); return; }
+  if (e.key === 'ArrowDown') { e.preventDefault(); activeIdx = Math.min(activeIdx + 1, resultItems.length - 1); renderList(); scrollActive(); }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); activeIdx = Math.max(activeIdx - 1, 0); renderList(); scrollActive(); }
+  else if (e.key === 'Enter') { e.preventDefault(); const c = resultItems[activeIdx]; if (c) start(c.p, c.t); }
+  else if (e.key === 'Escape') { query = ''; e.target.value = ''; renderList(); }
+});
+function scrollActive(){ document.querySelector('.row.active')?.scrollIntoView({ block:'nearest' }); }
+document.addEventListener('keydown', e => {
+  const typing = /^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement?.tagName);
+  if (e.key === '/' && !typing) { e.preventDefault(); $('search').focus(); }
+});
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkRunning(false); });
+setInterval(() => { if (running) tick(); }, 1000);
+
+// ---------- boot ----------
+indexCache(); renderAll();
+if (!apiKey) showSettings(true);
+else if (!cache) connect();
+else {
+  checkRunning(true);
+  if (Date.now() - cache.at > DAY) refreshData(false).then(renderAll).catch(handleError);
+}
+})();
+</script>
+</body>
+</html>
