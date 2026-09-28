@@ -100,6 +100,28 @@ h2{font-size:14px;font-weight:600;color:var(--muted);margin:22px 4px 8px}
 .toast.show{opacity:1}
 .toast.error{background:var(--danger);color:#fff}
 :focus-visible{outline:2px solid var(--go);outline-offset:2px}
+.project-line{display:flex;align-items:stretch}
+.project-line .row{flex:1;min-width:0;padding-left:4px}
+.chev{flex:none;width:44px;border:0;background:none;cursor:pointer;color:var(--muted);display:grid;place-items:center}
+.chev:hover{color:var(--ink)}
+.chev svg{transition:transform .15s}
+.project.collapsed .chev svg{transform:rotate(-90deg)}
+.project.collapsed .tasks{display:none}
+.tasks{margin-left:36px}
+.row.add{color:var(--go);min-height:42px}
+.row.add .plus{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;flex:none;border:1.5px dashed var(--go);font-size:18px;line-height:1}
+.results .row.add{border-top:1px solid var(--line)}
+.list-tools{display:flex;justify-content:flex-end;gap:4px;margin-top:14px}
+.link{border:0;background:none;color:var(--muted);font-size:14px;padding:6px 8px;cursor:pointer;border-radius:var(--radius-sm)}
+.link:hover{color:var(--ink)}
+.seg{display:flex;background:var(--bg);border:1px solid var(--line);border-radius:999px;padding:3px;margin-top:12px}
+.seg button{flex:1;border:0;background:none;border-radius:999px;padding:8px 6px;cursor:pointer;color:var(--muted)}
+.seg button[aria-checked="true"]{background:var(--surface);color:var(--ink);font-weight:600;box-shadow:0 0 0 1px var(--line)}
+.swatches{display:flex;flex-wrap:wrap;gap:8px}
+.swatch{width:30px;height:30px;border-radius:50%;border:2px solid transparent;cursor:pointer;padding:0}
+.swatch[aria-checked="true"]{border-color:var(--ink);box-shadow:inset 0 0 0 2px var(--surface)}
+.check{display:flex;align-items:center;gap:10px;margin:14px 0 4px;font-size:15px}
+.check input{width:18px;height:18px;accent-color:var(--go)}
 .hidden{display:none !important}
 @media (prefers-reduced-motion: reduce){*{transition:none !important}}
 </style>
@@ -117,6 +139,9 @@ h2{font-size:14px;font-weight:600;color:var(--muted);margin:22px 4px 8px}
     </div>
     <div class="searchbar">
       <input class="search" id="search" type="search" placeholder="Search projects and tasks" autocomplete="off" spellcheck="false" aria-label="Search projects and tasks">
+      <button class="icon-btn" id="createBtn" aria-label="Create" title="Create a task, project or category">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+      </button>
       <button class="icon-btn" id="settingsBtn" aria-label="Settings" title="Settings">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
       </button>
@@ -142,6 +167,36 @@ h2{font-size:14px;font-weight:600;color:var(--muted);margin:22px 4px 8px}
     </div>
   </div>
 
+  <div id="create" class="panel hidden">
+    <h3>Create</h3>
+    <div class="seg" role="radiogroup" aria-label="What to create" id="createType">
+      <button type="button" role="radio" data-type="task">Task</button>
+      <button type="button" role="radio" data-type="project">Project</button>
+      <button type="button" role="radio" data-type="client">Category</button>
+    </div>
+    <div class="field">
+      <label for="newName" id="newNameLabel">Task name</label>
+      <input id="newName" type="text" autocomplete="off" maxlength="250">
+    </div>
+    <div class="field" id="newProjectField">
+      <label for="newProject">Project</label>
+      <select id="newProject"></select>
+    </div>
+    <div class="field" id="newClientField">
+      <label for="newClient">Category</label>
+      <select id="newClient"></select>
+    </div>
+    <div class="field" id="newColorField">
+      <span>Color</span>
+      <div class="swatches" role="radiogroup" aria-label="Project color" id="swatches"></div>
+    </div>
+    <label class="check" id="startAfterField"><input type="checkbox" id="startAfter" checked> Start timer after creating</label>
+    <div class="btns">
+      <button class="btn primary" id="createGo">Create task</button>
+      <button class="btn" id="createCancel">Cancel</button>
+    </div>
+  </div>
+
   <div id="list"></div>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
@@ -150,7 +205,7 @@ h2{font-size:14px;font-weight:600;color:var(--muted);margin:22px 4px 8px}
 (() => {
 'use strict';
 const BASE = 'https://api.clockify.me/api/v1';
-const K = { key:'qt.key', cache:'qt.cache', recent:'qt.recent', collapsed:'qt.collapsed', ws:'qt.ws' };
+const K = { key:'qt.key', cache:'qt.cache', recent:'qt.recent', collapsed:'qt.collapsed', ws:'qt.ws', projOpen:'qt.projOpen' };
 const DAY = 86400000;
 
 // ---------- storage (always guarded) ----------
@@ -165,6 +220,7 @@ let apiKey = store.get(K.key, '');
 let cache = store.get(K.cache, null);        // {ws, userId, workspaces, projects, at}
 let recent = store.get(K.recent, []);         // [{p, t}]
 let collapsed = store.get(K.collapsed, {});   // {groupName: true}
+let projOpen = store.get(K.projOpen, {});     // {projectId: true|false}; default open when it has tasks
 let running = null;                           // {id, projectId, taskId, start, pName, tName, color}
 let lastRunCheck = 0, busy = false, query = '', activeIdx = 0, resultItems = [];
 let projectsById = new Map();
@@ -183,6 +239,7 @@ function el(tag, props = {}, ...kids){
   for (const c of kids.flat()) if (c != null) e.append(c instanceof Node ? c : document.createTextNode(String(c)));
   return e;
 }
+const byName = (a, b) => a.name.localeCompare(b.name);
 const safeColor = c => (typeof c === 'string' && /^#[0-9a-f]{3,8}$/i.test(c)) ? c : null;
 const isoNow = () => new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
 function fmt(ms){
@@ -215,7 +272,8 @@ async function api(path, method = 'GET', body){
   } catch {
     throw new ApiError(0, "Couldn't reach Clockify. Check your internet connection.");
   }
-  if (res.status === 401 || res.status === 403) throw new ApiError(401, "Clockify didn't accept the API key. Paste a current key in Settings.");
+  if (res.status === 401) throw new ApiError(401, "Clockify didn't accept the API key. Paste a current key in Settings.");
+  if (res.status === 403) { let m = ''; try { m = (await res.json()).message || ''; } catch {} throw new ApiError(403, m || "Your Clockify role doesn't allow this action in this workspace."); }
   if (res.status === 429) throw new ApiError(429, 'Clockify is limiting requests right now. Wait a minute and try again.');
   if (!res.ok) { let m = ''; try { m = (await res.json()).message || ''; } catch {} throw new ApiError(res.status, m || `Clockify returned an error (${res.status}).`); }
   if (res.status === 204) return null;
@@ -246,11 +304,11 @@ async function refreshData(announce){
   const rawProjects = await getAll(`/workspaces/${ws}/projects?archived=false&hydrated=true`);
   const projects = rawProjects.map(p => ({
     id: p.id, name: p.name, color: safeColor(p.color),
-    client: (p.clientId && clientName.get(p.clientId)) || p.clientName || '',
+    client: (p.clientId && clientName.get(p.clientId)) || p.clientName || '', clientId: p.clientId || null,
     tasks: (p.tasks || []).filter(t => t.status !== 'DONE').map(t => ({ id:t.id, name:t.name }))
       .sort((a,b) => a.name.localeCompare(b.name))
   })).sort((a,b) => a.name.localeCompare(b.name));
-  cache = { ws, userId: user.id, workspaces, projects, at: Date.now() };
+  cache = { ws, userId: user.id, workspaces, projects, clients: clients.map(c => ({ id:c.id, name:c.name })).sort(byName), at: Date.now() };
   store.set(K.cache, cache); indexCache();
   if (announce) toast(`Loaded ${projects.length} projects`);
 }
@@ -349,7 +407,43 @@ function makeRow(p, t, opts = {}){
   const dot = row.querySelector('.dot'); if (dot && p.color) dot.style.background = p.color;
   return row;
 }
+function isProjOpen(p){ return projOpen[p.id] ?? p.tasks.length > 0; }
+function chevIcon(){
+  const ns = 'http://www.w3.org/2000/svg';
+  const s = document.createElementNS(ns, 'svg'); s.setAttribute('width','16'); s.setAttribute('height','16'); s.setAttribute('viewBox','0 0 16 16'); s.setAttribute('aria-hidden','true');
+  const p = document.createElementNS(ns, 'path'); p.setAttribute('d','M4 6l4 4 4-4'); p.setAttribute('fill','none'); p.setAttribute('stroke','currentColor'); p.setAttribute('stroke-width','2'); p.setAttribute('stroke-linecap','round'); p.setAttribute('stroke-linejoin','round'); s.append(p);
+  return s;
+}
+function projectBlock(p){
+  const open = isProjOpen(p);
+  const proj = el('div', { class:`project${open ? '' : ' collapsed'}` });
+  const count = p.tasks.length;
+  const chev = el('button', { class:'chev', type:'button', 'aria-expanded': String(open),
+    'aria-label': `${open ? 'Hide' : 'Show'} tasks for ${p.name}`, title: `${count} task${count === 1 ? '' : 's'}`,
+    onclick: () => { const now = !isProjOpen(p); projOpen[p.id] = now; store.set(K.projOpen, projOpen);
+      proj.classList.toggle('collapsed', !now); chev.setAttribute('aria-expanded', String(now));
+      chev.setAttribute('aria-label', `${now ? 'Hide' : 'Show'} tasks for ${p.name}`); } }, chevIcon());
+  const meta = count ? `${count} task${count === 1 ? '' : 's'}` : 'No tasks';
+  proj.append(el('div', { class:'project-line' }, chev, makeRow(p, null, { dot:true, meta })));
+  const tasks = el('div', { class:'tasks' });
+  if (p.color) tasks.style.setProperty('--pc', p.color);
+  for (const t of p.tasks) tasks.append(makeRow(p, t));
+  tasks.append(addRow('Add task', () => openCreate({ type:'task', projectId:p.id })));
+  proj.append(tasks);
+  return proj;
+}
+function addRow(text, onclick){
+  return el('button', { class:'row add', type:'button', onclick }, el('span', { class:'plus', text:'+', 'aria-hidden':'true' }), el('span', { class:'label', text }));
+}
+function setAllProjects(open){
+  for (const p of cache.projects) projOpen[p.id] = open;
+  if (open) collapsed = {};
+  store.set(K.projOpen, projOpen); store.set(K.collapsed, collapsed); renderList();
+}
 function renderGroups(list){
+  list.append(el('div', { class:'list-tools' },
+    el('button', { class:'link', type:'button', text:'Expand all', onclick: () => setAllProjects(true) }),
+    el('button', { class:'link', type:'button', text:'Collapse all', onclick: () => setAllProjects(false) })));
   const groups = new Map();
   for (const p of cache.projects) { const g = p.client || ''; if (!groups.has(g)) groups.set(g, []); groups.get(g).push(p); }
   const names = [...groups.keys()].sort((a,b) => (a === '') - (b === '') || a.localeCompare(b));
@@ -357,16 +451,7 @@ function renderGroups(list){
   for (const g of names) {
     const label = g || (multiple ? 'No category' : 'Projects');
     const body = el('div', { class:'group-body' });
-    for (const p of groups.get(g)) {
-      const proj = el('div', { class:'project' }, makeRow(p, null, { dot:true }));
-      if (p.tasks.length) {
-        const tasks = el('div', { class:'tasks' });
-        if (p.color) tasks.style.setProperty('--pc', p.color);
-        for (const t of p.tasks) tasks.append(makeRow(p, t));
-        proj.append(tasks);
-      }
-      body.append(proj);
-    }
+    for (const p of groups.get(g)) body.append(projectBlock(p));
     const group = el('section', { class:`group${collapsed[label] ? ' collapsed' : ''}` });
     const head = el('button', { class:'group-head', type:'button', 'aria-expanded': String(!collapsed[label]),
       onclick: () => { collapsed[label] = !collapsed[label]; if (!collapsed[label]) delete collapsed[label];
@@ -399,14 +484,15 @@ function renderList(){
   if (query) {
     resultItems = searchItems(query);
     if (activeIdx >= resultItems.length) activeIdx = 0;
-    if (!resultItems.length) { list.append(el('div', { class:'empty', text:`Nothing matches "${query}".` })); return; }
     const box = el('div', { class:'results', role:'listbox' });
+    if (!resultItems.length) list.append(el('div', { class:'empty', text:`Nothing matches "${query}".` }));
     resultItems.forEach((c, i) => {
       const where = c.t ? (c.p.client ? `${c.p.name}, ${c.p.client}` : c.p.name) : (c.p.client || 'Project');
       const row = makeRow(c.p, c.t, { dot:true, meta:where });
       if (i === activeIdx) row.classList.add('active');
       box.append(row);
     });
+    box.append(addRow(`Create "${query}"`, () => openCreate({ type:'task', name:query })));
     list.append(box); return;
   }
   resultItems = [];
@@ -429,6 +515,7 @@ function renderAll(){ renderRunning(); renderList(); }
 
 // ---------- settings ----------
 function showSettings(open){
+  if (open) $('create').classList.add('hidden');
   $('settings').classList.toggle('hidden', !open);
   const connected = !!(apiKey && cache);
   $('keyInput').value = ''; $('keyInput').placeholder = apiKey ? 'Key saved. Paste a new one to replace it.' : 'Paste your API key';
@@ -453,6 +540,95 @@ async function connect(){
   finally { $('saveKeyBtn').disabled = false; }
 }
 
+// ---------- create ----------
+const COLORS = ['#F44336','#E91E63','#9C27B0','#673AB7','#3F51B5','#2196F3','#03A9F4','#009688','#4CAF50','#8BC34A','#FF9800','#795548','#607D8B'];
+let createType = 'task', newColor = COLORS[0];
+function openCreate(opts = {}){
+  if (!cache) { showSettings(true); return; }
+  showSettings(false);
+  createType = opts.type || 'task';
+  // project picker, grouped by category
+  const sel = $('newProject'); sel.replaceChildren();
+  const groups = new Map();
+  for (const p of cache.projects) { const g = p.client || 'No category'; if (!groups.has(g)) groups.set(g, []); groups.get(g).push(p); }
+  for (const [g, ps] of [...groups].sort((a,b) => (a[0] === 'No category') - (b[0] === 'No category') || a[0].localeCompare(b[0]))) {
+    const og = el('optgroup', { label:g });
+    for (const p of ps) og.append(el('option', { value:p.id, text:p.name }));
+    sel.append(og);
+  }
+  const wantP = opts.projectId || running?.projectId || recent[0]?.p;
+  if (wantP && projectsById.has(wantP)) sel.value = wantP;
+  // category picker
+  const cs = $('newClient');
+  cs.replaceChildren(el('option', { value:'', text:'No category' }), ...(cache.clients || []).map(c => el('option', { value:c.id, text:c.name })));
+  newColor = COLORS[Math.floor(Math.random() * COLORS.length)];
+  $('newName').value = opts.name || '';
+  $('startAfter').checked = true;
+  if (!cache.projects.length && createType === 'task') createType = 'project';
+  applyCreateType();
+  $('create').classList.remove('hidden');
+  $('create').scrollIntoView({ block:'nearest' });
+  $('newName').focus();
+}
+function applyCreateType(){
+  const t = createType;
+  document.querySelectorAll('#createType button').forEach(b => b.setAttribute('aria-checked', String(b.dataset.type === t)));
+  const noun = { task:'Task', project:'Project', client:'Category' }[t];
+  $('newNameLabel').textContent = `${noun} name`;
+  $('createGo').textContent = `Create ${noun.toLowerCase()}`;
+  $('newProjectField').classList.toggle('hidden', t !== 'task');
+  $('newClientField').classList.toggle('hidden', t !== 'project');
+  $('newColorField').classList.toggle('hidden', t !== 'project');
+  $('startAfterField').classList.toggle('hidden', t === 'client');
+  const sw = $('swatches');
+  sw.replaceChildren(...COLORS.map(c => { const b = el('button', { class:'swatch', type:'button', role:'radio', 'aria-label':c, 'aria-checked': String(c === newColor),
+    onclick: () => { newColor = c; sw.querySelectorAll('.swatch').forEach(x => x.setAttribute('aria-checked', String(x === b))); } });
+    b.style.background = c; return b; }));
+}
+function closeCreate(){ $('create').classList.add('hidden'); }
+async function createItem(){
+  if (busy || !cache) return;
+  const name = $('newName').value.trim();
+  if (!name) { toast('Enter a name first', true); $('newName').focus(); return; }
+  const t = createType, startAfter = $('startAfter').checked;
+  busy = true; $('createGo').disabled = true;
+  try {
+    let startP = null, startT = null;
+    if (t === 'client') {
+      const c = await api(`/workspaces/${cache.ws}/clients`, 'POST', { name });
+      cache.clients = [...(cache.clients || []), { id:c.id, name:c.name }].sort(byName);
+      toast(`Created category ${c.name}`);
+    } else if (t === 'project') {
+      const clientId = $('newClient').value || null;
+      const body = { name, color:newColor, billable:false };
+      if (clientId) body.clientId = clientId;
+      const r = await api(`/workspaces/${cache.ws}/projects`, 'POST', body);
+      const p = { id:r.id, name:r.name, color:safeColor(r.color) || newColor, clientId,
+        client: clientId ? (cache.clients.find(c => c.id === clientId)?.name || '') : '', tasks:[] };
+      cache.projects = [...cache.projects, p].sort(byName);
+      toast(`Created project ${p.name}`); startP = p;
+    } else {
+      const p = projectsById.get($('newProject').value);
+      if (!p) throw new ApiError(0, 'Choose a project for the task.');
+      const r = await api(`/workspaces/${cache.ws}/projects/${p.id}/tasks`, 'POST', { name });
+      const task = { id:r.id, name:r.name };
+      p.tasks = [...p.tasks, task].sort(byName);
+      projOpen[p.id] = true; store.set(K.projOpen, projOpen);
+      toast(`Created task ${task.name}`); startP = p; startT = task;
+    }
+    store.set(K.cache, cache); indexCache();
+    closeCreate(); query = ''; $('search').value = '';
+    busy = false;
+    if (startAfter && startP) await start(startP, startT); else renderAll();
+  } catch (err) { handleError(err); }
+  finally { busy = false; $('createGo').disabled = false; }
+}
+document.querySelectorAll('#createType button').forEach(b => b.addEventListener('click', () => { createType = b.dataset.type; applyCreateType(); $('newName').focus(); }));
+$('createBtn').addEventListener('click', () => $('create').classList.contains('hidden') ? openCreate({ name: query }) : closeCreate());
+$('createCancel').addEventListener('click', closeCreate);
+$('createGo').addEventListener('click', createItem);
+$('newName').addEventListener('keydown', e => { if (e.key === 'Enter') createItem(); else if (e.key === 'Escape') closeCreate(); });
+
 // ---------- events ----------
 $('stopBtn').addEventListener('click', stop);
 $('settingsBtn').addEventListener('click', () => showSettings($('settings').classList.contains('hidden')));
@@ -471,7 +647,7 @@ $('wsSelect').addEventListener('change', async e => {
 $('forgetBtn').addEventListener('click', () => {
   if (!confirm('Remove the API key and cached projects from this browser?')) return;
   Object.values(K).forEach(k => store.del(k));
-  apiKey = ''; cache = null; running = null; recent = []; collapsed = {}; indexCache();
+  apiKey = ''; cache = null; running = null; recent = []; collapsed = {}; projOpen = {}; indexCache();
   renderAll(); showSettings(true); toast('Key removed from this browser');
 });
 $('search').addEventListener('input', e => { query = e.target.value.trim(); activeIdx = 0; renderList(); });
@@ -496,7 +672,7 @@ if (!apiKey) showSettings(true);
 else if (!cache) connect();
 else {
   checkRunning(true);
-  if (Date.now() - cache.at > DAY) refreshData(false).then(renderAll).catch(handleError);
+  if (!cache.clients || Date.now() - cache.at > DAY) refreshData(false).then(renderAll).catch(handleError);
 }
 })();
 </script>
