@@ -174,6 +174,8 @@ button.bar:hover{background:color-mix(in srgb, var(--go) 7%, transparent)}
 .today-legend span{display:inline-flex;align-items:center;gap:6px}
 .today-legend .dot{width:8px;height:8px}
 .today-legend b{color:var(--ink);font-weight:600}
+.rtime{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.row.is-running .rtime{color:var(--run);font-weight:600}
 .hidden{display:none !important}
 @media (prefers-reduced-motion: reduce){*{transition:none !important}}
 </style>
@@ -518,8 +520,10 @@ function makeRow(p, t, opts = {}){
     opts.dot ? el('span', { class:'dot' }) : null,
     el('span', { class:'label' }, el('div', { class:'title', text:title }),
       live ? el('div', { class:'meta state', text:'Running' }) : (meta ? el('div', { class:'meta', text:meta }) : null)),
+    el('span', { class:'rtime', 'data-k': t ? `${p.id}|${t.id}` : `P|${p.id}`, title:'Time today' }),
     playIcon());
   const dot = row.querySelector('.dot'); if (dot && p.color) dot.style.background = p.color;
+  setRowTime(row.querySelector('.rtime'));
   return row;
 }
 function isProjOpen(p){ return projOpen[p.id] ?? p.tasks.length > 0; }
@@ -592,6 +596,7 @@ function searchItems(q){
   return out.sort((a,b) => a.score - b.score || a.name.localeCompare(b.name)).slice(0, 60);
 }
 function renderList(){
+  rowTimes = todayTimes();
   const list = $('list'); list.replaceChildren();
   if (!cache) { list.append(el('div', { class:'empty', text:'Add your Clockify API key in Settings to load your projects.' })); return; }
   if (!cache.projects.length) { list.append(el('div', { class:'empty', text:'No active projects in this workspace. Create one in Clockify, then choose Reload projects in Settings.' })); return; }
@@ -1198,7 +1203,29 @@ function updateTodayCard(){
   const cur = $('todayCard');
   if (cur && view === 'timer' && !query) cur.replaceWith(todayCardEl());
 }
-setInterval(() => { if (running) updateTodayCard(); }, 15000);   // local re-draw only, no requests
+// Time spent today per task and per project, from the data the Today card already has (no requests).
+let rowTimes = new Map();
+function todayTimes(){
+  const m = new Map();
+  if (!cache) return m;
+  const p = period('today', 0), v = sumCache.get(todayKey(p));
+  if (!v) return m;
+  const a = +p.a, b = Date.now();
+  for (const g of withLive(v.segs)) {
+    const o = overlap(g.s, g.e, a, b); if (!o) continue;
+    const pid = g.keys[1], tk = `${pid}|${g.keys[2]}`, pk = `P|${pid}`;
+    m.set(tk, (m.get(tk) || 0) + o); m.set(pk, (m.get(pk) || 0) + o);
+  }
+  return m;
+}
+function setRowTime(span){
+  if (!span) return;
+  const ms = rowTimes.get(span.dataset.k) || 0;
+  span.textContent = ms >= 60000 ? dur(ms) : '';
+  span.setAttribute('aria-label', ms >= 60000 ? `${dur(ms)} today` : '');
+}
+function refreshRowTimes(){ rowTimes = todayTimes(); document.querySelectorAll('#list .rtime').forEach(setRowTime); }
+setInterval(() => { if (running) { updateTodayCard(); refreshRowTimes(); } }, 15000);   // local re-draw only, no requests
 
 // ---------- boot ----------
 indexCache(); renderAll();
