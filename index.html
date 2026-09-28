@@ -1167,7 +1167,15 @@ function todayCardEl(){
     return btn;
   }
   const root = buildTree(withLive(v.segs), p);
-  const cats = [...root.children.values()].filter(c => c.ms > 0).sort((x, y) => y.ms - x.ms);
+  // Categories stay grouped; time with no category is shown per project instead of one lumped item.
+  const cats = [];
+  for (const c of root.children.values()) {
+    if (c.ms <= 0) continue;
+    if (c.key === '') for (const pr of c.children.values()) { if (pr.ms > 0) cats.push({ name: pr.name, ms: pr.ms, col: pr.color || null }); }
+    else cats.push({ name: c.name, ms: c.ms, col: catColor(c.key) });
+  }
+  cats.sort((x, y) => y.ms - x.ms);
+  cats.forEach((c, i) => { if (!c.col) c.col = PALETTE[i % PALETTE.length]; });
   const d = root.ms - root.prev;
   btn.append(el('div', { class:'today-top' },
     el('span', { class:'today-label', text:'Today' }),
@@ -1176,12 +1184,13 @@ function todayCardEl(){
   if (!root.ms) { btn.append(el('div', { class:'today-legend', text:'Nothing tracked yet today.' })); return btn; }
   const stack = el('div', { class:'stack', 'aria-hidden':'true' });
   const legend = el('div', { class:'today-legend' });
+  const SHOW = 8;
   cats.forEach((c, i) => {
-    const col = catColor(c.key);
+    const col = c.col;
     const part = el('span', { title:`${c.name}: ${dur(c.ms)}` }); part.style.flex = String(c.ms); part.style.background = col; stack.append(part);
-    if (i < 4) { const dot = el('span', { class:'dot' }); dot.style.background = col; legend.append(el('span', {}, dot, `${c.name} `, el('b', { text: dur(c.ms) }))); }
+    if (i < SHOW) { const dot = el('span', { class:'dot' }); dot.style.background = col; legend.append(el('span', {}, dot, `${c.name} `, el('b', { text: dur(c.ms) }))); }
   });
-  if (cats.length > 4) legend.append(el('span', { text:`+${cats.length - 4} more` }));
+  if (cats.length > SHOW) legend.append(el('span', { text:`+${cats.length - SHOW} more` }));
   btn.append(stack, legend);
   return btn;
 }
