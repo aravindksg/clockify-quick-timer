@@ -122,6 +122,46 @@ h2{font-size:14px;font-weight:600;color:var(--muted);margin:22px 4px 8px}
 .swatch[aria-checked="true"]{border-color:var(--ink);box-shadow:inset 0 0 0 2px var(--surface)}
 .check{display:flex;align-items:center;gap:10px;margin:14px 0 4px;font-size:15px}
 .check input{width:18px;height:18px;accent-color:var(--go)}
+.searchbar .seg{margin-top:0;flex:1}
+.sum-head{display:flex;align-items:center;gap:8px;margin-top:14px}
+.sum-title{flex:1;text-align:center;font-weight:600}
+.sum-sub{text-align:center;color:var(--muted);font-size:13px}
+.nav{width:36px;height:36px}
+.nav:disabled{opacity:.35;cursor:default}
+.custom-dates{display:flex;gap:8px;margin-top:10px;align-items:center}
+.custom-dates input{flex:1;min-width:0;border:1px solid var(--line);background:var(--surface);border-radius:var(--radius-sm);padding:8px 10px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-lg);padding:16px;margin-top:12px}
+.card h4{margin:0 0 10px;font-size:14px;color:var(--muted);font-weight:600}
+.crumbs{display:flex;flex-wrap:wrap;align-items:center;gap:2px;font-size:14px;margin-bottom:6px}
+.crumbs .link{padding:4px 6px}
+.crumbs .here{font-weight:600;padding:4px 6px}
+.donut-wrap{display:flex;justify-content:center;margin:4px 0 6px}
+.slice{cursor:pointer;transition:opacity .15s}
+.slice:hover{opacity:.8}
+.bars{display:flex;flex-direction:column;margin-top:6px}
+.bar{display:block;width:100%;border:0;border-top:1px solid var(--line);background:none;text-align:left;padding:11px 4px;color:inherit}
+button.bar{cursor:pointer}
+button.bar:hover{background:color-mix(in srgb, var(--go) 7%, transparent)}
+.bar-top{display:flex;align-items:center;gap:8px}
+.bar-name{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bar-time{font-variant-numeric:tabular-nums;font-weight:600}
+.bar-more{color:var(--muted);width:12px;text-align:center}
+.bar-bottom{display:flex;align-items:center;gap:10px;margin-top:6px;font-size:13px;color:var(--muted)}
+.track{flex:1;height:8px;border-radius:4px;background:var(--bg);overflow:hidden}
+.fill{height:100%;border-radius:4px;min-width:2px}
+.pct{width:38px;text-align:right;font-variant-numeric:tabular-nums}
+.delta{width:84px;text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.chart{width:100%;display:block;overflow:visible}
+.chart text{font:11px var(--text);fill:var(--muted)}
+.chart .today-lbl{fill:var(--ink);font-weight:600}
+.hit{cursor:pointer;fill:transparent}
+.hit:hover,.hit.sel{fill:color-mix(in srgb, var(--ink) 7%, transparent)}
+.seg-rect{cursor:pointer}
+.detail{font-size:14px;margin-top:10px;min-height:20px}
+.detail .muted{color:var(--muted)}
+.detail-list{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:4px;font-size:13px;color:var(--muted)}
+.detail-list span{display:inline-flex;align-items:center;gap:6px}
+.detail-list .dot{width:8px;height:8px}
 .hidden{display:none !important}
 @media (prefers-reduced-motion: reduce){*{transition:none !important}}
 </style>
@@ -137,10 +177,24 @@ h2{font-size:14px;font-weight:600;color:var(--muted);margin:22px 4px 8px}
       <div class="digits" id="nowDigits">0:00:00</div>
       <button class="stop hidden" id="stopBtn">Stop</button>
     </div>
-    <div class="searchbar">
+    <div class="searchbar hidden" id="summaryBar">
+      <button class="icon-btn" id="backBtn" aria-label="Back to timer" title="Back to timer">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
+      </button>
+      <div class="seg" role="radiogroup" aria-label="Time range" id="rangeSeg">
+        <button type="button" role="radio" data-kind="today">Today</button>
+        <button type="button" role="radio" data-kind="week">Week</button>
+        <button type="button" role="radio" data-kind="month">Month</button>
+        <button type="button" role="radio" data-kind="custom">Custom</button>
+      </div>
+    </div>
+    <div class="searchbar" id="timerBar">
       <input class="search" id="search" type="search" placeholder="Search projects and tasks" autocomplete="off" spellcheck="false" aria-label="Search projects and tasks">
       <button class="icon-btn" id="createBtn" aria-label="Create" title="Create a task, project or category">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+      </button>
+      <button class="icon-btn" id="summaryBtn" aria-label="Summary" title="Summary">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>
       </button>
       <button class="icon-btn" id="settingsBtn" aria-label="Settings" title="Settings">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
@@ -198,6 +252,7 @@ h2{font-size:14px;font-weight:600;color:var(--muted);margin:22px 4px 8px}
   </div>
 
   <div id="list"></div>
+  <div id="summary" class="hidden"></div>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
@@ -205,7 +260,7 @@ h2{font-size:14px;font-weight:600;color:var(--muted);margin:22px 4px 8px}
 (() => {
 'use strict';
 const BASE = 'https://api.clockify.me/api/v1';
-const K = { key:'qt.key', cache:'qt.cache', recent:'qt.recent', collapsed:'qt.collapsed', ws:'qt.ws', projOpen:'qt.projOpen' };
+const K = { key:'qt.key', cache:'qt.cache', recent:'qt.recent', collapsed:'qt.collapsed', ws:'qt.ws', projOpen:'qt.projOpen', sumKind:'qt.sumKind' };
 const DAY = 86400000;
 
 // ---------- storage (always guarded) ----------
@@ -308,7 +363,7 @@ async function refreshData(announce){
     tasks: (p.tasks || []).filter(t => t.status !== 'DONE').map(t => ({ id:t.id, name:t.name }))
       .sort((a,b) => a.name.localeCompare(b.name))
   })).sort((a,b) => a.name.localeCompare(b.name));
-  cache = { ws, userId: user.id, workspaces, projects, clients: clients.map(c => ({ id:c.id, name:c.name })).sort(byName), at: Date.now() };
+  cache = { ws, userId: user.id, weekStart: user.settings?.weekStart || 'MONDAY', workspaces, projects, clients: clients.map(c => ({ id:c.id, name:c.name })).sort(byName), at: Date.now() };
   store.set(K.cache, cache); indexCache();
   if (announce) toast(`Loaded ${projects.length} projects`);
 }
@@ -348,7 +403,7 @@ async function start(p, t){
     const body = { start: now, projectId: p.id, billable: false };
     if (t) body.taskId = t.id;
     const e = await api(`/workspaces/${cache.ws}/time-entries`, 'POST', body);
-    running = toRunning(e); lastRunCheck = Date.now();
+    running = toRunning(e); lastRunCheck = Date.now(); sumCache.clear();
     recent = [{ p:p.id, t:t?.id || null }, ...recent.filter(r => !(r.p === p.id && r.t === (t?.id || null)))].slice(0, 8);
     store.set(K.recent, recent);
     toast(`Started ${t ? t.name : p.name}`);
@@ -359,7 +414,7 @@ async function start(p, t){
 async function stop(){
   if (busy || !running) return;
   busy = true; $('stopBtn').disabled = true;
-  try { await stopRemote(isoNow(), false); toast(`Stopped at ${fmt(Date.now() - running.start)}`); running = null; }
+  try { await stopRemote(isoNow(), false); toast(`Stopped at ${fmt(Date.now() - running.start)}`); running = null; sumCache.clear(); }
   catch (err) {
     if (err.status === 400 || err.status === 404) { running = null; toast('That timer was already stopped'); }
     else handleError(err);
@@ -631,7 +686,7 @@ $('newName').addEventListener('keydown', e => { if (e.key === 'Enter') createIte
 
 // ---------- events ----------
 $('stopBtn').addEventListener('click', stop);
-$('settingsBtn').addEventListener('click', () => showSettings($('settings').classList.contains('hidden')));
+$('settingsBtn').addEventListener('click', () => view === 'summary' ? (setView('timer'), showSettings(true)) : showSettings($('settings').classList.contains('hidden')));
 $('closeSettingsBtn').addEventListener('click', () => showSettings(false));
 $('saveKeyBtn').addEventListener('click', connect);
 $('keyInput').addEventListener('keydown', e => { if (e.key === 'Enter') connect(); });
@@ -665,6 +720,367 @@ document.addEventListener('keydown', e => {
 });
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkRunning(false); });
 setInterval(() => { if (running) tick(); }, 1000);
+
+// ---------- summary ----------
+const PALETTE = ['#2F7FD8','#E4572E','#2E9E5B','#E0A21B','#8E5BD8','#17A2A2','#D65DB1','#7C8B2C','#B5693C','#5C6BC0'];
+const OTHER = '__other';
+const WD = { SUNDAY:0, MONDAY:1, TUESDAY:2, WEDNESDAY:3, THURSDAY:4, FRIDAY:5, SATURDAY:6 };
+let view = 'timer';
+const sum = { kind: store.get(K.sumKind, 'week'), offset:0, customA:'', customB:'', path:[], selDay:null, selSeg:null, token:0 };
+const sumCache = new Map();
+
+const startOfDay = d => { const x = new Date(d); x.setHours(0,0,0,0); return x; };
+const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
+const addMonths = (d, n) => { const x = new Date(d); x.setDate(1); x.setMonth(x.getMonth() + n); return x; };
+const isoOf = d => new Date(d).toISOString().replace(/\.\d{3}Z$/, 'Z');
+const ymd = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+const parseYmd = v => { const [y,m,d] = v.split('-').map(Number); return new Date(y, m-1, d); };
+const fmtD = (d, o = { month:'short', day:'numeric' }) => d.toLocaleDateString(undefined, o);
+const fmtT = ms => new Date(ms).toLocaleTimeString(undefined, { hour:'numeric', minute:'2-digit' });
+function dur(ms){
+  const m = Math.round(ms / 60000);
+  if (m < 1) return ms > 0 ? '<1m' : '0m';
+  const h = Math.floor(m / 60), r = m % 60;
+  return h ? (r ? `${h}h ${r}m` : `${h}h`) : `${r}m`;
+}
+const overlap = (s, e, a, b) => Math.max(0, Math.min(e, b) - Math.max(s, a));
+
+function period(){
+  const now = new Date(); let a, b, pa, cmp;
+  if (sum.kind === 'today') { a = addDays(startOfDay(now), sum.offset); b = addDays(a, 1); pa = addDays(a, -1); cmp = 'the day before'; }
+  else if (sum.kind === 'week') {
+    const ws = WD[cache?.weekStart] ?? 1, t = startOfDay(now);
+    a = addDays(t, -((t.getDay() - ws + 7) % 7) + 7 * sum.offset); b = addDays(a, 7); pa = addDays(a, -7); cmp = 'the week before';
+  } else if (sum.kind === 'month') { const t = startOfDay(now); t.setDate(1); a = addMonths(t, sum.offset); b = addMonths(a, 1); pa = addMonths(a, -1); cmp = 'the month before'; }
+  else {
+    if (!sum.customB) sum.customB = ymd(now);
+    if (!sum.customA) sum.customA = ymd(addDays(now, -6));
+    a = parseYmd(sum.customA); let e = parseYmd(sum.customB); if (e < a) e = a;
+    b = addDays(e, 1);
+    const n = Math.round((b - a) / 86400000); pa = addDays(a, -n); cmp = `the previous ${n} day${n === 1 ? '' : 's'}`;
+  }
+  const inProgress = now > a && now < b;
+  const effB = inProgress ? now : b;
+  const pb = inProgress ? new Date(Math.min(pa.getTime() + (now - a), a.getTime())) : a;
+  const days = Math.round((b - a) / 86400000);
+  let title;
+  if (sum.kind === 'today') title = sum.offset === 0 ? 'Today' : sum.offset === -1 ? 'Yesterday' : fmtD(a, { weekday:'short', month:'short', day:'numeric' });
+  else if (sum.kind === 'month') title = fmtD(a, { month:'long', year:'numeric' });
+  else title = days === 1 ? fmtD(a, { weekday:'short', month:'short', day:'numeric' }) : `${fmtD(a)} – ${fmtD(addDays(b, -1))}`;
+  if (sum.kind === 'week' && sum.offset === 0) title = `This week, ${title}`;
+  const cmpLabel = inProgress ? `vs same point in ${cmp}` : `vs ${cmp}`;
+  return { a, b, effB, pa, pb, days, inProgress, title, cmpLabel, now };
+}
+
+async function fetchSegs(p){
+  const from = addDays(p.pa, -1), to = p.b < p.now ? p.b : p.now;
+  const key = `${cache.ws}|${+from}|${+p.b}`;
+  if (sumCache.has(key)) return sumCache.get(key);
+  const entries = []; const size = 1000;
+  for (let page = 1; page <= 20; page++) {
+    const batch = await api(`/workspaces/${cache.ws}/user/${cache.userId}/time-entries?start=${isoOf(from)}&end=${isoOf(to)}&hydrated=true&page=${page}&page-size=${size}`);
+    entries.push(...batch); if (batch.length < size) break;
+  }
+  const segs = [];
+  const seen = new Set();
+  const nowMs = Date.now();
+  for (const e of entries) {
+    if (!e.timeInterval?.start) continue;
+    seen.add(e.id);
+    const s = Date.parse(e.timeInterval.start), en = e.timeInterval.end ? Date.parse(e.timeInterval.end) : nowMs;
+    if (!(en > s)) continue;
+    const pr = projectsById.get(e.projectId);
+    segs.push({
+      s, e: en,
+      keys: [ (pr ? pr.client : e.project?.clientName) || '', e.projectId || 'none', e.taskId || 'none' ],
+      names: [ (pr ? pr.client : e.project?.clientName) || 'No category', pr?.name || e.project?.name || 'No project',
+               pr?.tasks.find(t => t.id === e.taskId)?.name || e.task?.name || 'No task' ],
+      pColor: pr?.color || safeColor(e.project?.color)
+    });
+  }
+  if (running && !seen.has(running.id) && running.start < +p.b) {
+    const pr = projectsById.get(running.projectId);
+    segs.push({ s: running.start, e: nowMs, keys: [pr?.client || '', running.projectId || 'none', running.taskId || 'none'],
+      names: [pr?.client || 'No category', running.pName, running.tName || 'No task'], pColor: running.color });
+  }
+  sumCache.set(key, segs);
+  return segs;
+}
+
+function buildTree(segs, p){
+  const root = { key:'root', name:'All time', level:0, ms:0, prev:0, children:new Map() };
+  for (const g of segs) {
+    const cur = overlap(g.s, g.e, +p.a, +p.effB), prv = overlap(g.s, g.e, +p.pa, +p.pb);
+    if (!cur && !prv) continue;
+    let node = root; node.ms += cur; node.prev += prv;
+    for (let l = 0; l < 3; l++) {
+      let c = node.children.get(g.keys[l]);
+      if (!c) { c = { key:g.keys[l], name:g.names[l], level:l + 1, ms:0, prev:0, children:new Map(), color: l === 1 ? g.pColor : null }; node.children.set(g.keys[l], c); }
+      c.ms += cur; c.prev += prv; node = c;
+    }
+  }
+  return root;
+}
+function catColor(key){
+  if (!key) return '#8A94A3';
+  const names = (cache.clients || []).map(c => c.name);
+  let i = names.indexOf(key);
+  if (i < 0) { i = 0; for (const ch of key) i = (i * 31 + ch.charCodeAt(0)) >>> 0; }
+  return PALETTE[i % PALETTE.length];
+}
+function colorFor(item, rank){
+  if (item.key === OTHER) return '#9AA3AF';
+  if (item.level === 1) return catColor(item.key);
+  if (item.level === 2 && item.color) return item.color;
+  return PALETTE[rank % PALETTE.length];
+}
+function segMatches(g, path){ for (let i = 0; i < path.length; i++) if (g.keys[i] !== path[i]) return false; return true; }
+
+function svg(tag, attrs = {}, ...kids){
+  const e = document.createElementNS('http://www.w3.org/2000/svg', tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (v == null) continue;
+    if (k === 'text') e.textContent = v;
+    else if (k.startsWith('on')) e.addEventListener(k.slice(2), v);
+    else e.setAttribute(k, v);
+  }
+  for (const c of kids.flat()) if (c) e.append(c);
+  return e;
+}
+
+function renderSummaryShell(){
+  document.querySelectorAll('#rangeSeg button').forEach(b => b.setAttribute('aria-checked', String(b.dataset.kind === sum.kind)));
+}
+
+async function loadSummary(){
+  renderSummaryShell();
+  const box = $('summary');
+  if (!cache) { box.replaceChildren(el('div', { class:'empty', text:'Connect Clockify in Settings first.' })); return; }
+  const p = period();
+  const token = ++sum.token;
+  const key = `${cache.ws}|${+addDays(p.pa, -1)}|${+p.b}`;
+  if (!sumCache.has(key)) { box.replaceChildren(headerEl(p), el('div', { class:'empty', text:'Loading your time…' })); }
+  try {
+    const segs = await fetchSegs(p);
+    if (token !== sum.token || view !== 'summary') return;
+    renderSummary(p, segs);
+  } catch (err) {
+    if (token !== sum.token) return;
+    box.replaceChildren(headerEl(p), el('div', { class:'empty' }, el('div', { text: err.message || 'Could not load your time.' }),
+      el('button', { class:'btn', type:'button', text:'Try again', style:'margin-top:12px', onclick: () => { sumCache.clear(); loadSummary(); } })));
+    if (err.status === 401) showSettings(true);
+  }
+}
+
+function headerEl(p){
+  const wrap = el('div');
+  const navOK = sum.kind !== 'custom';
+  const head = el('div', { class:'sum-head' },
+    navOK ? el('button', { class:'icon-btn nav', type:'button', 'aria-label':'Previous period', text:'‹', onclick: () => { sum.offset--; sum.selDay = sum.selSeg = null; loadSummary(); } }) : null,
+    el('div', { class:'sum-title', text:p.title }),
+    navOK ? el('button', { class:'icon-btn nav', type:'button', 'aria-label':'Next period', text:'›', onclick: () => { if (sum.offset < 0) { sum.offset++; sum.selDay = sum.selSeg = null; loadSummary(); } } }) : null,
+    el('button', { class:'icon-btn nav', type:'button', 'aria-label':'Reload', title:'Reload', text:'↻', onclick: () => { sumCache.clear(); loadSummary(); } }));
+  if (navOK) head.children[2].disabled = sum.offset >= 0;
+  wrap.append(head);
+  if (sum.kind === 'custom') {
+    const mk = (id, val) => el('input', { type:'date', value:val, max: ymd(new Date()), 'aria-label': id === 'a' ? 'Start date' : 'End date',
+      onchange: e => { if (!e.target.value) return; if (id === 'a') sum.customA = e.target.value; else sum.customB = e.target.value; sum.selDay = sum.selSeg = null; loadSummary(); } });
+    wrap.append(el('div', { class:'custom-dates' }, mk('a', sum.customA), el('span', { text:'to', class:'sum-sub' }), mk('b', sum.customB)));
+  }
+  return wrap;
+}
+
+function renderSummary(p, segs){
+  const box = $('summary');
+  const root = buildTree(segs, p);
+  // follow drill path; trim if a level no longer exists in this range
+  let node = root; const trail = [root];
+  for (let i = 0; i < sum.path.length; i++) {
+    const c = node.children.get(sum.path[i]);
+    if (!c) { sum.path = sum.path.slice(0, i); break; }
+    node = c; trail.push(c);
+  }
+  const items = [...node.children.values()].filter(c => c.ms > 0 || c.prev > 0).sort((x, y) => y.ms - x.ms || y.prev - x.prev);
+  items.forEach((it, i) => it.col = colorFor(it, i));
+  const canDrill = node.level < 2;
+
+  const out = [headerEl(p)];
+  if (!root.ms && !root.prev) {
+    out.push(el('div', { class:'empty', text:'No time tracked in this period.' }));
+    box.replaceChildren(...out); return;
+  }
+
+  // ---- card 1: donut + ranked bars
+  const card = el('div', { class:'card' });
+  const crumbs = el('div', { class:'crumbs' });
+  trail.forEach((n, i) => {
+    if (i) crumbs.append(el('span', { class:'sum-sub', text:'›' }));
+    if (i === trail.length - 1) crumbs.append(el('span', { class:'here', text: i ? n.name : 'All categories' }));
+    else crumbs.append(el('button', { class:'link', type:'button', text: i ? n.name : 'All categories', onclick: () => { sum.path = sum.path.slice(0, i); sum.selDay = sum.selSeg = null; renderSummary(p, segs); } }));
+  });
+  card.append(crumbs);
+
+  // donut: top 7 + other
+  const cur = items.filter(i => i.ms > 0);
+  let slices = cur.slice(0, 7);
+  const rest = cur.slice(7).reduce((t, i) => t + i.ms, 0);
+  if (rest) slices = slices.concat([{ key:OTHER, name:'Other', ms:rest, col:'#9AA3AF', level:node.level + 1 }]);
+  const size = 200, r = 76, sw = 28, C = 2 * Math.PI * r, total = node.ms;
+  const donut = svg('svg', { width:size, height:size, viewBox:`0 0 ${size} ${size}`, role:'img', 'aria-label':`${dur(total)} tracked` });
+  donut.append(svg('circle', { cx:size/2, cy:size/2, r, fill:'none', 'stroke-width':sw, style:'stroke:var(--bg)' }));
+  let acc = 0;
+  const gap = slices.length > 1 ? 1.5 : 0;
+  for (const sl of slices) {
+    const len = total ? sl.ms / total * C : 0;
+    const drill = canDrill && sl.key !== OTHER;
+    const c = svg('circle', { class: drill ? 'slice' : null, cx:size/2, cy:size/2, r, fill:'none', 'stroke-width':sw,
+      'stroke-dasharray': `${Math.max(0, len - gap)} ${C}`, 'stroke-dashoffset': -acc, transform:`rotate(-90 ${size/2} ${size/2})`,
+      style:`stroke:${sl.col}`, onclick: drill ? () => drillTo(sl.key, p, segs) : null },
+      svg('title', { text:`${sl.name}: ${dur(sl.ms)} (${Math.round(sl.ms / total * 100)}%)` }));
+    donut.append(c); acc += len;
+  }
+  donut.append(svg('text', { x:size/2, y:size/2 - 2, 'text-anchor':'middle', style:'font:600 22px var(--digits);fill:var(--ink)', text: dur(total) }));
+  donut.append(svg('text', { x:size/2, y:size/2 + 18, 'text-anchor':'middle', style:'font:12px var(--text);fill:var(--muted)', text: p.inProgress ? 'so far' : 'tracked' }));
+  card.append(el('div', { class:'donut-wrap' }, donut));
+  const dTot = total - node.prev;
+  card.append(el('div', { class:'sum-sub', text: `${dTot >= 0 ? '▲' : '▼'} ${dur(Math.abs(dTot))} ${p.cmpLabel}` }));
+
+  // ranked bars
+  const bars = el('div', { class:'bars' });
+  const max = Math.max(1, ...items.map(i => i.ms));
+  for (const it of items) {
+    const d = it.ms - it.prev;
+    const deltaTxt = !it.prev ? (it.ms ? 'new' : '') : !it.ms ? `▼ ${dur(it.prev)}` : Math.abs(d) < 60000 ? '±0m' : `${d > 0 ? '▲' : '▼'} ${dur(Math.abs(d))}`;
+    const drill = canDrill && it.ms > 0;
+    const fill = el('div', { class:'fill' }); fill.style.width = `${it.ms / max * 100}%`; fill.style.background = it.col;
+    const dot = el('span', { class:'dot' }); dot.style.background = it.col;
+    const row = el(drill ? 'button' : 'div', { class:'bar', type: drill ? 'button' : null, onclick: drill ? () => drillTo(it.key, p, segs) : null,
+        'aria-label': drill ? `${it.name}, ${dur(it.ms)}. Show breakdown` : null },
+      el('div', { class:'bar-top' }, dot, el('span', { class:'bar-name', text: it.name }), el('span', { class:'bar-time', text: dur(it.ms) }),
+        el('span', { class:'bar-more', text: drill ? '›' : '' })),
+      el('div', { class:'bar-bottom' }, el('div', { class:'track' }, fill),
+        el('span', { class:'pct', text: total ? `${Math.round(it.ms / total * 100)}%` : '' }),
+        el('span', { class:'delta', text: deltaTxt, title: p.cmpLabel })));
+    bars.append(row);
+  }
+  card.append(bars);
+  out.push(card);
+
+  // ---- card 2: daily columns or day timeline
+  const colorOf = new Map(slices.map(s => [s.key, s.col]));
+  const nameOf = new Map(items.map(i => [i.key, i.name]));
+  const keyFor = g => { const k = g.keys[sum.path.length]; return colorOf.has(k) ? k : OTHER; };
+  const mine = segs.filter(g => segMatches(g, sum.path));
+  const chartCard = el('div', { class:'card' });
+  out.push(chartCard);
+  box.replaceChildren(...out);
+  const width = Math.max(260, chartCard.clientWidth - 32);
+  if (p.days === 1) renderTimeline(chartCard, width, p, mine, keyFor, colorOf, nameOf);
+  else if (p.days <= 62) renderColumns(chartCard, width, p, mine, keyFor, colorOf, nameOf, slices);
+  else chartCard.append(el('div', { class:'sum-sub', text:'The daily chart shows ranges of up to 62 days. Pick a shorter range to see it.' }));
+}
+function drillTo(key, p, segs){ if (sum.path.length < 2) { sum.path = [...sum.path, key]; sum.selDay = sum.selSeg = null; renderSummary(p, segs); window.scrollTo({ top:0 }); } }
+
+function renderColumns(card, W, p, segs, keyFor, colorOf, nameOf, slices){
+  card.append(el('h4', { text:'Hours per day' }));
+  const n = p.days, H = 190, padL = 30, padB = 22, padT = 6, plotW = W - padL, plotH = H - padB - padT;
+  const days = [];
+  for (let i = 0; i < n; i++) {
+    const ds = addDays(p.a, i), de = addDays(p.a, i + 1), m = new Map(); let tot = 0;
+    for (const g of segs) { const o = overlap(g.s, g.e, +ds, Math.min(+de, +p.effB)); if (o) { const k = keyFor(g); m.set(k, (m.get(k) || 0) + o); tot += o; } }
+    days.push({ ds, m, tot });
+  }
+  const maxH = Math.max(1, ...days.map(d => d.tot)) / 3600000;
+  const step = [1,2,3,4,6,8,12,24].find(s => maxH / s <= 4) || 24;
+  const top = Math.max(step, Math.ceil(maxH / step) * step);
+  const y = h => padT + plotH - h / top * plotH;
+  const chart = svg('svg', { class:'chart', width:W, height:H, viewBox:`0 0 ${W} ${H}`, role:'img', 'aria-label':'Hours per day chart' });
+  for (let h = 0; h <= top; h += step) {
+    chart.append(svg('line', { x1:padL, x2:W, y1:y(h), y2:y(h), style:'stroke:var(--line);stroke-width:1' }));
+    chart.append(svg('text', { x:padL - 6, y:y(h) + 4, 'text-anchor':'end', text:`${h}h` }));
+  }
+  const slot = plotW / n, bw = Math.max(3, Math.min(34, slot * 0.68));
+  const order = [...slices.map(s => s.key)];
+  const todayKey = ymd(new Date());
+  const labelEvery = n <= 7 ? 1 : n <= 16 ? 2 : Math.ceil(n / 8);
+  const detail = el('div', { class:'detail' });
+  days.forEach((d, i) => {
+    const x = padL + i * slot + (slot - bw) / 2;
+    let acc = 0;
+    const g = svg('g');
+    for (const k of order) {
+      const v = d.m.get(k); if (!v) continue;
+      const h = v / 3600000;
+      g.append(svg('rect', { x, y: y(acc + h), width:bw, height: Math.max(0.5, y(acc) - y(acc + h)), rx: 2, style:`fill:${colorOf.get(k)}` }));
+      acc += h;
+    }
+    const hit = svg('rect', { class:`hit${sum.selDay === i ? ' sel' : ''}`, x: padL + i * slot, y: padT, width: slot, height: plotH + padB, rx: 4,
+      onclick: () => { sum.selDay = i; chart.querySelectorAll('.hit').forEach((h2, j) => h2.classList.toggle('sel', j === i)); showDay(detail, d, colorOf, nameOf, order); } },
+      svg('title', { text: `${fmtD(d.ds, { weekday:'short', month:'short', day:'numeric' })}: ${dur(d.tot)}` }));
+    chart.append(hit, g);
+    if (i % labelEvery === 0 || n <= 7) {
+      const isToday = ymd(d.ds) === todayKey;
+      const lbl = n <= 7 ? fmtD(d.ds, { weekday:'short' }) : String(d.ds.getDate());
+      chart.append(svg('text', { x: padL + i * slot + slot / 2, y: H - 6, 'text-anchor':'middle', class: isToday ? 'today-lbl' : null, text: lbl }));
+    }
+    g.style.pointerEvents = 'none';
+  });
+  card.append(chart, detail);
+  const avgDays = days.filter(d => +d.ds < +p.effB).length || 1;
+  const total = days.reduce((t, d) => t + d.tot, 0);
+  if (sum.selDay != null && days[sum.selDay]) showDay(detail, days[sum.selDay], colorOf, nameOf, order);
+  else detail.append(el('span', { class:'muted', text:`Average ${dur(total / avgDays)} per day. Tap a day for its breakdown.` }));
+}
+function showDay(detail, d, colorOf, nameOf, order){
+  const list = el('div', { class:'detail-list' });
+  for (const k of order) { const v = d.m.get(k); if (!v) continue;
+    const dot = el('span', { class:'dot' }); dot.style.background = colorOf.get(k);
+    list.append(el('span', {}, dot, `${k === OTHER ? 'Other' : nameOf.get(k)} ${dur(v)}`)); }
+  detail.replaceChildren(el('strong', { text: `${fmtD(d.ds, { weekday:'long', month:'short', day:'numeric' })}: ${dur(d.tot)}` }), list);
+}
+function renderTimeline(card, W, p, segs, keyFor, colorOf, nameOf){
+  card.append(el('h4', { text:'Timeline' }));
+  const H = 64, barY = 6, barH = 34, x = t => (t - +p.a) / 86400000 * W;
+  const chart = svg('svg', { class:'chart', width:W, height:H, viewBox:`0 0 ${W} ${H}`, role:'img', 'aria-label':'Timeline of the day' });
+  chart.append(svg('rect', { x:0, y:barY, width:W, height:barH, rx:6, style:'fill:var(--bg)' }));
+  const detail = el('div', { class:'detail' });
+  const parts = segs.map(g => ({ g, s: Math.max(g.s, +p.a), e: Math.min(g.e, +p.effB) })).filter(q => q.e > q.s).sort((a, b) => a.s - b.s);
+  parts.forEach((q, i) => {
+    const k = keyFor(q.g);
+    const r = svg('rect', { class:'seg-rect', x: x(q.s), y: barY, width: Math.max(1.5, x(q.e) - x(q.s)), height: barH, style:`fill:${colorOf.get(k)}`,
+      onclick: () => showSeg(detail, q) }, svg('title', { text: `${q.g.names[2] !== 'No task' ? q.g.names[2] + ', ' : ''}${q.g.names[1]}: ${fmtT(q.s)} to ${fmtT(q.e)}` }));
+    chart.append(r);
+  });
+  if (p.inProgress) chart.append(svg('line', { x1: x(+p.now), x2: x(+p.now), y1: barY - 3, y2: barY + barH + 3, style:'stroke:var(--ink);stroke-width:1.5' }));
+  const hs = W < 520 ? 6 : 3;
+  for (let h = 0; h <= 24; h += hs) {
+    const tx = h / 24 * W;
+    chart.append(svg('text', { x: Math.min(Math.max(tx, 10), W - 10), y: H - 6, 'text-anchor':'middle',
+      text: new Date(2000, 0, 1, h % 24).toLocaleTimeString(undefined, { hour:'numeric' }) }));
+  }
+  card.append(chart, detail);
+  detail.append(el('span', { class:'muted', text: parts.length ? 'Tap a block to see what it was.' : 'Nothing tracked yet.' }));
+}
+function showSeg(detail, q){
+  const t = q.g.names[2] !== 'No task' ? q.g.names[2] : q.g.names[1];
+  detail.replaceChildren(el('strong', { text: t }), el('span', { class:'muted', text: `  ${q.g.names[2] !== 'No task' ? q.g.names[1] + ', ' : ''}${fmtT(q.s)} to ${fmtT(q.e)} (${dur(q.e - q.s)})` }));
+}
+
+function setView(v){
+  view = v;
+  const sumV = v === 'summary';
+  $('timerBar').classList.toggle('hidden', sumV); $('summaryBar').classList.toggle('hidden', !sumV);
+  $('list').classList.toggle('hidden', sumV); $('summary').classList.toggle('hidden', !sumV);
+  $('create').classList.add('hidden'); $('settings').classList.add('hidden');
+  if (sumV) { if (running) sumCache.clear(); loadSummary(); window.scrollTo({ top:0 }); } else renderList();
+}
+$('summaryBtn').addEventListener('click', () => setView('summary'));
+$('backBtn').addEventListener('click', () => setView('timer'));
+document.querySelectorAll('#rangeSeg button').forEach(b => b.addEventListener('click', () => {
+  sum.kind = b.dataset.kind; sum.offset = 0; sum.selDay = sum.selSeg = null; store.set(K.sumKind, sum.kind); loadSummary();
+}));
+let resizeT;
+window.addEventListener('resize', () => { clearTimeout(resizeT); resizeT = setTimeout(() => { if (view === 'summary') loadSummary(); }, 250); });
 
 // ---------- boot ----------
 indexCache(); renderAll();
