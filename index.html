@@ -54,17 +54,9 @@ button,input,select{font:inherit;color:inherit}
 @media (max-width:420px){.digits{font-size:28px}.stop{padding:11px 16px}}
 
 h2{font-size:14px;font-weight:600;color:var(--muted);margin:22px 4px 8px}
-.chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px}
-.chip{flex:none;max-width:220px;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:8px 14px;cursor:pointer;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:8px}
 .dot{width:10px;height:10px;border-radius:50%;flex:none;background:var(--muted)}
 
-.group{margin-top:18px}
-.group-head{display:flex;align-items:center;gap:8px;width:100%;border:0;background:none;padding:6px 4px;cursor:pointer;
-  font-size:14px;font-weight:600;color:var(--muted);text-align:left}
-.caret{transition:transform .15s}
-.group.collapsed .caret{transform:rotate(-90deg)}
-.group.collapsed .group-body{display:none}
+.group{margin-top:8px}
 .group-body{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-lg);overflow:hidden}
 .project + .project{border-top:1px solid var(--line)}
 
@@ -176,6 +168,38 @@ button.bar:hover{background:color-mix(in srgb, var(--go) 7%, transparent)}
 .today-legend b{color:var(--ink);font-weight:600}
 .rtime{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
 .row.is-running .rtime{color:var(--run);font-weight:600}
+/* Quick start tiles: pinned favorites, then recent items */
+.sec-head{display:flex;align-items:center;justify-content:space-between;margin:16px 4px 8px}
+.sec-head h2{margin:0}
+.hint{color:var(--muted);font-size:14px;margin:0 4px 10px}
+.tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.tile{--pc:var(--muted);position:relative;display:flex;flex-direction:column;gap:2px;min-height:84px;padding:10px 10px 10px 14px;text-align:left;cursor:pointer;
+  border:1px solid color-mix(in srgb, var(--pc) 30%, var(--line));border-radius:var(--radius-lg);
+  background:color-mix(in srgb, var(--pc) 12%, var(--surface));box-shadow:inset 4px 0 0 var(--pc)}
+.tile:hover{border-color:color-mix(in srgb, var(--pc) 60%, var(--line))}
+.tile:active{transform:scale(.98)}
+.tile-name{font-weight:600;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
+.tile-sub{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tile-foot{margin-top:auto;display:flex;align-items:center;gap:6px;min-height:18px}
+.tile .rtime{flex:1}
+.tile-pin{color:var(--muted);font-size:12px}
+.tile.is-running{background:var(--run-bg);border-color:var(--run);box-shadow:inset 4px 0 0 var(--run)}
+.tile.is-running .rtime,.tile-state{color:var(--run);font-weight:600;font-size:12px}
+.tile.ghost{border-style:dashed;background:var(--surface)}
+.tile-badge{position:absolute;top:6px;right:6px;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;background:var(--ink);color:var(--bg);font-size:15px;line-height:1}
+.tile.ghost .tile-badge{background:var(--go);color:var(--go-ink)}
+.tiles.editing .tile-name{padding-right:20px}
+@media (max-width:340px){.tiles{grid-template-columns:repeat(2,minmax(0,1fr))}}
+/* Category tabs */
+.tabs{display:flex;gap:8px;overflow-x:auto;margin-top:22px;padding:2px 0 4px;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tab{flex:none;display:flex;align-items:center;gap:8px;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:8px 14px;cursor:pointer;white-space:nowrap}
+.tab .dot{width:8px;height:8px}
+.tab .rtime:empty{display:none}
+.tab[aria-selected="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.tab[aria-selected="true"] .rtime{color:inherit}
+.star{background:none;border:1.5px solid var(--go);color:var(--go)}
+.row.pinned .star{background:var(--go);color:var(--go-ink)}
 .hidden{display:none !important}
 @media (prefers-reduced-motion: reduce){*{transition:none !important}}
 </style>
@@ -275,7 +299,7 @@ button.bar:hover{background:color-mix(in srgb, var(--go) 7%, transparent)}
 (() => {
 'use strict';
 const BASE = 'https://api.clockify.me/api/v1';
-const K = { key:'qt.key', cache:'qt.cache', recent:'qt.recent', collapsed:'qt.collapsed', ws:'qt.ws', projOpen:'qt.projOpen', sumKind:'qt.sumKind', calls:'qt.calls', backoff:'qt.backoff' };
+const K = { key:'qt.key', cache:'qt.cache', recent:'qt.recent', fav:'qt.fav', tab:'qt.tab', ws:'qt.ws', projOpen:'qt.projOpen', sumKind:'qt.sumKind', calls:'qt.calls', backoff:'qt.backoff' };
 const DAY = 86400000;
 
 // ---------- storage (always guarded) ----------
@@ -289,7 +313,9 @@ const store = {
 let apiKey = store.get(K.key, '');
 let cache = store.get(K.cache, null);        // {ws, userId, workspaces, projects, at}
 let recent = store.get(K.recent, []);         // [{p, t}]
-let collapsed = store.get(K.collapsed, {});   // {groupName: true}
+let fav = store.get(K.fav, []);               // pinned Quick start items [{p, t}]
+let tab = store.get(K.tab, null);             // selected category tab: client name, '' for none, null for All
+let editFav = false, tabsScroll = 0;
 let projOpen = store.get(K.projOpen, {});     // {projectId: true|false}; default open when it has tasks
 let running = null;                           // {id, projectId, taskId, start, pName, tName, color}
 let calls = store.get(K.calls, []), backoffUntil = store.get(K.backoff, 0);
@@ -329,6 +355,12 @@ function playIcon(){
   const s = document.createElementNS(ns, 'svg'); s.setAttribute('width','12'); s.setAttribute('height','12'); s.setAttribute('viewBox','0 0 12 12'); s.setAttribute('aria-hidden','true');
   const p = document.createElementNS(ns, 'path'); p.setAttribute('d','M3 1.5v9l7.5-4.5z'); p.setAttribute('fill','currentColor'); s.append(p);
   return el('span', {class:'play'}, s);
+}
+function starIcon(){
+  const ns = 'http://www.w3.org/2000/svg';
+  const s = document.createElementNS(ns, 'svg'); s.setAttribute('width','14'); s.setAttribute('height','14'); s.setAttribute('viewBox','0 0 12 12'); s.setAttribute('aria-hidden','true');
+  const p = document.createElementNS(ns, 'path'); p.setAttribute('d','M6 1l1.55 3.14 3.45.5-2.5 2.44.59 3.44L6 8.9 2.91 10.52l.59-3.44L1 4.64l3.45-.5z'); p.setAttribute('fill','currentColor'); s.append(p);
+  return el('span', {class:'play star'}, s);
 }
 
 // ---------- API ----------
@@ -515,13 +547,15 @@ function makeRow(p, t, opts = {}){
   const live = isRunning(p, t);
   const title = t ? t.name : p.name;
   const meta = opts.meta ?? (t ? null : (p.tasks.length ? 'Project, no task' : null));
-  const row = el('button', { class:`row${t ? '' : ' project-row'}${live ? ' is-running' : ''}`, type:'button',
-      'aria-label': `Start ${title}${t ? ' in ' + p.name : ''}`, onclick: () => start(p, t) },
+  const pinned = editFav && isFav(p, t);
+  const row = el('button', { class:`row${t ? '' : ' project-row'}${live ? ' is-running' : ''}${pinned ? ' pinned' : ''}`, type:'button', 'data-fk': favKey(p, t),
+      'aria-label': `${editFav ? (pinned ? 'Unpin' : 'Pin') : 'Start'} ${title}${t ? ' in ' + p.name : ''}`,
+      onclick: () => editFav ? toggleFav(p, t) : start(p, t) },
     opts.dot ? el('span', { class:'dot' }) : null,
     el('span', { class:'label' }, el('div', { class:'title', text:title }),
       live ? el('div', { class:'meta state', text:'Running' }) : (meta ? el('div', { class:'meta', text:meta }) : null)),
     el('span', { class:'rtime', 'data-k': t ? `${p.id}|${t.id}` : `P|${p.id}`, title:'Time today' }),
-    playIcon());
+    editFav ? starIcon() : playIcon());
   const dot = row.querySelector('.dot'); if (dot && p.color) dot.style.background = p.color;
   setRowTime(row.querySelector('.rtime'));
   return row;
@@ -556,28 +590,85 @@ function addRow(text, onclick){
 }
 function setAllProjects(open){
   for (const p of cache.projects) projOpen[p.id] = open;
-  if (open) collapsed = {};
-  store.set(K.projOpen, projOpen); store.set(K.collapsed, collapsed); renderList();
+  store.set(K.projOpen, projOpen); renderList();
 }
 function renderGroups(list){
-  list.append(el('div', { class:'list-tools' },
-    el('button', { class:'link', type:'button', text:'Expand all', onclick: () => setAllProjects(true) }),
-    el('button', { class:'link', type:'button', text:'Collapse all', onclick: () => setAllProjects(false) })));
   const groups = new Map();
   for (const p of cache.projects) { const g = p.client || ''; if (!groups.has(g)) groups.set(g, []); groups.get(g).push(p); }
   const names = [...groups.keys()].sort((a,b) => (a === '') - (b === '') || a.localeCompare(b));
-  const multiple = names.length > 1 || names[0] !== '';
-  for (const g of names) {
-    const label = g || (multiple ? 'No category' : 'Projects');
+  const multiple = names.length > 1;
+  if (!multiple || !groups.has(tab)) tab = null;
+  if (multiple) {
+    const tabs = el('div', { class:'tabs', role:'tablist', 'aria-label':'Categories', onscroll: e => { tabsScroll = e.target.scrollLeft; } });
+    const mk = (key, label) => {
+      const b = el('button', { class:'tab', type:'button', role:'tab', 'aria-selected': String(tab === key),
+          onclick: () => { tab = key; store.set(K.tab, key); renderList(); } },
+        key == null ? null : el('span', { class:'dot' }), el('span', { text:label }),
+        key == null ? null : el('span', { class:'rtime', 'data-k': `C|${key}` }));
+      if (key != null) { b.querySelector('.dot').style.background = catColor(key); setRowTime(b.querySelector('.rtime')); }
+      return b;
+    };
+    tabs.append(mk(null, 'All'), ...names.map(g => mk(g, g || 'No category')));
+    list.append(tabs);
+    tabs.scrollLeft = tabsScroll;
+  }
+  list.append(el('div', { class:'list-tools' },
+    el('button', { class:'link', type:'button', text:'Expand all', onclick: () => setAllProjects(true) }),
+    el('button', { class:'link', type:'button', text:'Collapse all', onclick: () => setAllProjects(false) })));
+  for (const g of tab == null ? names : [tab]) {
+    if (tab == null && (multiple || g)) list.append(el('h2', { text: g || 'No category' }));
     const body = el('div', { class:'group-body' });
     for (const p of groups.get(g)) body.append(projectBlock(p));
-    const group = el('section', { class:`group${collapsed[label] ? ' collapsed' : ''}` });
-    const head = el('button', { class:'group-head', type:'button', 'aria-expanded': String(!collapsed[label]),
-      onclick: () => { collapsed[label] = !collapsed[label]; if (!collapsed[label]) delete collapsed[label];
-        store.set(K.collapsed, collapsed); group.classList.toggle('collapsed'); head.setAttribute('aria-expanded', String(!collapsed[label])); } },
-      el('span', { class:'caret', text:'▾', 'aria-hidden':'true' }), el('span', { text:label }));
-    group.append(head, body); list.append(group);
+    list.append(el('section', { class:'group' }, body));
   }
+}
+// ---------- quick start (favorites + recent) ----------
+const MAX_FAV = 9, QUICK = 6;
+const favKey = (p, t) => `${p.id}|${t?.id || ''}`;
+function isFav(p, t){ return fav.some(f => f.p === p.id && f.t === (t?.id || null)); }
+function resolveRef(r){ const p = projectsById.get(r.p); const t = r.t ? p?.tasks.find(x => x.id === r.t) : null; return p && (!r.t || t) ? { p, t } : null; }
+function toggleFav(p, t){
+  const sel = `#list .row[data-fk="${CSS.escape(favKey(p, t))}"]`;
+  const before = document.querySelector(sel)?.getBoundingClientRect().top;
+  if (isFav(p, t)) fav = fav.filter(f => !(f.p === p.id && f.t === (t?.id || null)));
+  else if (fav.length >= MAX_FAV) { toast(`You can pin up to ${MAX_FAV}. Unpin one first.`, true); return; }
+  else fav = [...fav, { p:p.id, t:t?.id || null }];
+  store.set(K.fav, fav); renderList();
+  const after = document.querySelector(sel)?.getBoundingClientRect().top;   // keep the tapped row still while tiles change height
+  if (before != null && after != null) window.scrollBy(0, after - before);
+}
+function quickItems(){
+  const out = fav.map(resolveRef).filter(Boolean).map(x => ({ ...x, pinned:true }));
+  for (const r of recent) {
+    if (out.length >= QUICK) break;
+    const x = resolveRef(r);
+    if (x && !out.some(o => o.p === x.p && o.t === x.t)) out.push(x);
+  }
+  return out;
+}
+function tileEl({ p, t, pinned }){
+  const live = isRunning(p, t), name = t ? t.name : p.name;
+  const tile = el('button', { class:`tile${live ? ' is-running' : ''}${editFav && !pinned ? ' ghost' : ''}`, type:'button',
+      title: t ? `${t.name} in ${p.name}` : p.name,
+      'aria-label': `${editFav ? (pinned ? 'Unpin' : 'Pin') : 'Start'} ${name}${t ? ' in ' + p.name : ''}`,
+      onclick: () => editFav ? toggleFav(p, t) : start(p, t) },
+    el('span', { class:'tile-name', text:name }),
+    el('span', { class:'tile-sub', text: t ? p.name : (p.client || 'Project') }),
+    el('span', { class:'tile-foot' }, el('span', { class:'rtime', 'data-k': t ? `${p.id}|${t.id}` : `P|${p.id}` }),
+      live ? el('span', { class:'tile-state', text:'Running' }) : (pinned && !editFav ? el('span', { class:'tile-pin', text:'★', title:'Pinned' }) : null)),
+    editFav ? el('span', { class:'tile-badge', text: pinned ? '×' : '+', 'aria-hidden':'true' }) : null);
+  if (p.color) tile.style.setProperty('--pc', p.color);
+  setRowTime(tile.querySelector('.rtime'));
+  return tile;
+}
+function quickSection(list){
+  const items = quickItems();
+  list.append(el('div', { class:'sec-head' }, el('h2', { text:'Quick start' }),
+    el('button', { class:'link', type:'button', text: editFav ? 'Done' : 'Edit', 'aria-pressed': String(editFav),
+      onclick: () => { editFav = !editFav; renderList(); } })));
+  if (editFav) list.append(el('p', { class:'hint', text:`Tap a tile, or the star on any task below, to pin or unpin it. Up to ${MAX_FAV} pinned; recent items fill the rest.` }));
+  if (!items.length) { list.append(el('p', { class:'hint', text:'Tasks you start show up here. Choose Edit to pin favorites.' })); return; }
+  list.append(el('div', { class:`tiles${editFav ? ' editing' : ''}` }, items.map(tileEl)));
 }
 function searchItems(q){
   const words = q.toLowerCase().split(/\s+/).filter(Boolean);
@@ -616,20 +707,8 @@ function renderList(){
     list.append(box); return;
   }
   resultItems = [];
+  quickSection(list);
   list.append(todayCardEl());
-  const rec = recent.map(r => { const p = projectsById.get(r.p); const t = r.t ? p?.tasks.find(x => x.id === r.t) : null;
-    return p && (!r.t || t) ? { p, t } : null; }).filter(Boolean).slice(0, 6);
-  if (rec.length) {
-    list.append(el('h2', { text:'Recent' }));
-    const chips = el('div', { class:'chips' });
-    for (const { p, t } of rec) {
-      const chip = el('button', { class:'chip', type:'button', title: t ? `${t.name} in ${p.name}` : p.name, onclick: () => start(p, t) },
-        el('span', { class:'dot' }), el('span', { text: t ? t.name : p.name }));
-      if (p.color) chip.firstChild.style.background = p.color;
-      chips.append(chip);
-    }
-    list.append(chips);
-  }
   renderGroups(list);
 }
 function renderAll(){ renderRunning(); renderList(); }
@@ -763,13 +842,14 @@ $('refreshBtn').addEventListener('click', async () => {
   finally { $('refreshBtn').disabled = false; }
 });
 $('wsSelect').addEventListener('change', async e => {
-  store.set(K.ws, e.target.value); recent = []; store.set(K.recent, recent);
+  store.set(K.ws, e.target.value); recent = []; fav = []; tab = null; store.set(K.recent, recent); store.set(K.fav, fav); store.set(K.tab, tab);
   try { sumCache.clear(); await refreshData(true); await sync('user'); showSettings(false); } catch (err) { handleError(err); }
 });
 $('forgetBtn').addEventListener('click', () => {
   if (!confirm('Remove the API key and cached projects from this browser?')) return;
   Object.values(K).forEach(k => store.del(k));
-  apiKey = ''; cache = null; running = null; calls = []; backoffUntil = 0; recent = []; collapsed = {}; projOpen = {}; indexCache();
+  try { Object.keys(localStorage).filter(k => k.startsWith('qt.')).forEach(k => store.del(k)); } catch {}
+  apiKey = ''; cache = null; running = null; calls = []; backoffUntil = 0; recent = []; fav = []; tab = null; editFav = false; projOpen = {}; indexCache();
   renderAll(); showSettings(true); toast('Key removed from this browser');
 });
 $('search').addEventListener('input', e => { query = e.target.value.trim(); activeIdx = 0; renderList(); });
@@ -777,7 +857,7 @@ $('search').addEventListener('keydown', e => {
   if (!query || !resultItems.length) { if (e.key === 'Escape') e.target.blur(); return; }
   if (e.key === 'ArrowDown') { e.preventDefault(); activeIdx = Math.min(activeIdx + 1, resultItems.length - 1); renderList(); scrollActive(); }
   else if (e.key === 'ArrowUp') { e.preventDefault(); activeIdx = Math.max(activeIdx - 1, 0); renderList(); scrollActive(); }
-  else if (e.key === 'Enter') { e.preventDefault(); const c = resultItems[activeIdx]; if (c) start(c.p, c.t); }
+  else if (e.key === 'Enter') { e.preventDefault(); const c = resultItems[activeIdx]; if (c) editFav ? toggleFav(c.p, c.t) : start(c.p, c.t); }
   else if (e.key === 'Escape') { query = ''; e.target.value = ''; renderList(); }
 });
 function scrollActive(){ document.querySelector('.row.active')?.scrollIntoView({ block:'nearest' }); }
@@ -1213,8 +1293,8 @@ function todayTimes(){
   const a = +p.a, b = Date.now();
   for (const g of withLive(v.segs)) {
     const o = overlap(g.s, g.e, a, b); if (!o) continue;
-    const pid = g.keys[1], tk = `${pid}|${g.keys[2]}`, pk = `P|${pid}`;
-    m.set(tk, (m.get(tk) || 0) + o); m.set(pk, (m.get(pk) || 0) + o);
+    const pid = g.keys[1], tk = `${pid}|${g.keys[2]}`, pk = `P|${pid}`, ck = `C|${g.keys[0]}`;
+    m.set(tk, (m.get(tk) || 0) + o); m.set(pk, (m.get(pk) || 0) + o); m.set(ck, (m.get(ck) || 0) + o);
   }
   return m;
 }
