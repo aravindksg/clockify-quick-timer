@@ -31,7 +31,7 @@
 html,body{margin:0}
 body{background:var(--bg);color:var(--ink);font:16px/1.4 var(--text);-webkit-tap-highlight-color:transparent}
 button,input,select{font:inherit;color:inherit}
-.wrap{max-width:640px;margin:0 auto;padding:0 16px 48px}
+.wrap{max-width:640px;margin:0 auto;padding:0 16px calc(96px + env(safe-area-inset-bottom,0px))}
 
 /* Running bar: the one bold element */
 .now{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);padding:14px 0 10px}
@@ -86,7 +86,7 @@ h2{font-size:14px;font-weight:600;color:var(--muted);margin:22px 4px 8px}
 .btn.danger{color:var(--danger)}
 .btn:disabled{opacity:.5}
 
-.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);
+.toast{position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);
   background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:var(--radius-sm);font-size:14px;max-width:calc(100% - 32px);
   opacity:0;pointer-events:none;transition:opacity .2s}
 .toast.show{opacity:1}
@@ -200,6 +200,12 @@ button.bar:hover{background:color-mix(in srgb, var(--go) 7%, transparent)}
 .tab[aria-selected="true"] .rtime{color:inherit}
 .star{background:none;border:1.5px solid var(--go);color:var(--go)}
 .row.pinned .star{background:var(--go);color:var(--go-ink)}
+/* Bottom navigation */
+.tabbar{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px)}
+.tabbar-in{max-width:640px;margin:0 auto;display:flex}
+.nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;border:0;background:none;padding:8px 4px 10px;cursor:pointer;color:var(--muted);font-size:12px}
+.nav-btn:hover{color:var(--ink)}
+.nav-btn[aria-current="page"]{color:var(--go);font-weight:600}
 .hidden{display:none !important}
 @media (prefers-reduced-motion: reduce){*{transition:none !important}}
 </style>
@@ -230,12 +236,6 @@ button.bar:hover{background:color-mix(in srgb, var(--go) 7%, transparent)}
       <input class="search" id="search" type="search" placeholder="Search" autocomplete="off" spellcheck="false" aria-label="Search projects and tasks">
       <button class="icon-btn" id="createBtn" aria-label="Create" title="Create a task, project or category">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
-      </button>
-      <button class="icon-btn" id="summaryBtn" aria-label="Summary" title="Summary">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>
-      </button>
-      <button class="icon-btn" id="settingsBtn" aria-label="Settings" title="Settings">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
       </button>
     </div>
   </div>
@@ -293,6 +293,14 @@ button.bar:hover{background:color-mix(in srgb, var(--go) 7%, transparent)}
   <div id="list"></div>
   <div id="summary" class="hidden"></div>
 </div>
+<nav class="tabbar" aria-label="Main">
+  <div class="tabbar-in">
+    <button class="nav-btn" type="button" id="navTimer"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M10 2h4"/></svg><span>Timer</span></button>
+    <button class="nav-btn" type="button" id="navSearch"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><span>Search</span></button>
+    <button class="nav-btn" type="button" id="navSummary"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg><span>Summary</span></button>
+    <button class="nav-btn" type="button" id="navSettings"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg><span>Settings</span></button>
+  </div>
+</nav>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script>
@@ -727,6 +735,7 @@ function showSettings(open){
     wsField.classList.remove('hidden');
   } else wsField.classList.add('hidden');
   if (open && !connected) $('keyInput').focus();
+  updateNav();
 }
 async function connect(){
   const val = $('keyInput').value.trim();
@@ -832,7 +841,6 @@ $('newName').addEventListener('keydown', e => { if (e.key === 'Enter') createIte
 
 // ---------- events ----------
 $('stopBtn').addEventListener('click', stop);
-$('settingsBtn').addEventListener('click', () => view === 'summary' ? (setView('timer'), showSettings(true)) : showSettings($('settings').classList.contains('hidden')));
 $('closeSettingsBtn').addEventListener('click', () => showSettings(false));
 $('saveKeyBtn').addEventListener('click', connect);
 $('keyInput').addEventListener('keydown', e => { if (e.key === 'Enter') connect(); });
@@ -1228,8 +1236,22 @@ function setView(v){
   $('list').classList.toggle('hidden', sumV); $('summary').classList.toggle('hidden', !sumV);
   $('create').classList.add('hidden'); $('settings').classList.add('hidden');
   if (sumV) { loadSummary(); window.scrollTo({ top:0 }); } else renderList();
+  updateNav();
 }
-$('summaryBtn').addEventListener('click', () => setView('summary'));
+function updateNav(){
+  const settingsOpen = !$('settings').classList.contains('hidden');
+  const cur = view === 'summary' ? 'navSummary' : settingsOpen ? 'navSettings' : 'navTimer';
+  for (const id of ['navTimer','navSearch','navSummary','navSettings']) { if (id === cur) $(id).setAttribute('aria-current', 'page'); else $(id).removeAttribute('aria-current'); }
+}
+function toTimer(){ if (view !== 'timer') setView('timer'); showSettings(false); closeCreate(); window.scrollTo({ top:0 }); }
+$('navTimer').addEventListener('click', toTimer);
+$('navSearch').addEventListener('click', () => { toTimer(); $('search').focus(); });
+$('navSummary').addEventListener('click', () => setView('summary'));
+$('navSettings').addEventListener('click', () => {
+  if (view === 'summary') setView('timer');
+  const open = $('settings').classList.contains('hidden');
+  showSettings(open); if (open) window.scrollTo({ top:0 });
+});
 $('backBtn').addEventListener('click', () => setView('timer'));
 document.querySelectorAll('#rangeSeg button').forEach(b => b.addEventListener('click', () => {
   sum.kind = b.dataset.kind; sum.offset = 0; sum.selDay = sum.selSeg = null; store.set(K.sumKind, sum.kind); loadSummary();

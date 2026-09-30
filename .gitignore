@@ -1,0 +1,4 @@
+# Personal files, keep out of the public repo
+CLAUDE.md
+*.csv
+.DS_Store
